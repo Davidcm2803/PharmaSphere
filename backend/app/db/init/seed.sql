@@ -1,6 +1,5 @@
-﻿-- =========================
+﻿
 -- SEED DATA - PharmaSphere
--- =========================
 
 -- SUCURSAL
 INSERT INTO sucursal (nombre, direccion, telefono) VALUES
