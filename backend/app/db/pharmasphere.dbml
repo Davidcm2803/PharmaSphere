@@ -1,0 +1,72 @@
+﻿Table sucursal {
+  id_sucursal int [pk, increment]
+  nombre varchar
+  direccion varchar
+  telefono varchar
+}
+
+Table proveedor {
+  id_proveedor int [pk, increment]
+  nombre varchar
+  contacto varchar
+}
+
+Table producto {
+  id_producto int [pk, increment]
+  nombre varchar
+  descripcion varchar
+  categoria varchar
+  precio float
+  requiere_receta boolean
+  id_proveedor int [ref: > proveedor.id_proveedor]
+}
+
+Table empleado {
+  id_empleado int [pk, increment]
+  nombre varchar
+  puesto varchar
+  id_sucursal int [ref: > sucursal.id_sucursal]
+}
+
+Table cliente {
+  id_cliente int [pk, increment]
+  nombre varchar
+  cedula varchar
+  telefono varchar
+  correo varchar
+  direccion varchar
+}
+
+Table inventario {
+  id_inventario int [pk, increment]
+  id_producto int [ref: > producto.id_producto]
+  id_sucursal int [ref: > sucursal.id_sucursal]
+  cantidad int
+  stock_minimo int
+}
+
+Table venta {
+  id_venta int [pk, increment]
+  fecha date
+  id_sucursal int [ref: > sucursal.id_sucursal]
+  id_empleado int [ref: > empleado.id_empleado]
+  id_cliente int [ref: > cliente.id_cliente]
+  total float
+  tipo varchar
+}
+
+Table detalleventa {
+  id_detalleventa int [pk, increment]
+  id_venta int [ref: > venta.id_venta]
+  id_producto int [ref: > producto.id_producto]
+  cantidad int
+  precio_unitario float
+}
+
+Table receta {
+  id_receta int [pk, increment]
+  id_cliente int [ref: > cliente.id_cliente]
+  medico varchar
+  id_producto int [ref: > producto.id_producto]
+  fecha date
+}

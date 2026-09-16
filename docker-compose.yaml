@@ -1,0 +1,51 @@
+﻿services:
+  db:
+    image: postgres:16-alpine
+    container_name: pharmasphere_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pharma_user
+      POSTGRES_PASSWORD: pharma_pass
+      POSTGRES_DB: pharmasphere
+    ports:
+      - "5434:5432"
+    volumes:
+      - pharmasphere_db_data:/var/lib/postgresql/data
+      - ./backend/app/db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pharma_user -d pharmasphere"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: pharmasphere_qdrant
+    restart: unless-stopped
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - pharmasphere_qdrant_data:/qdrant/storage
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pharmasphere_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+volumes:
+  pharmasphere_db_data:
+  pharmasphere_qdrant_data:
