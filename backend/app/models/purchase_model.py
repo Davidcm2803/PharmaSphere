@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -18,6 +18,8 @@ class Compra(Base):
             "estado IN ('pendiente', 'recibida', 'cancelada')", name="ck_compra_estado"
         ),
         CheckConstraint("total >= 0", name="ck_compra_total"),
+        Index("idx_compra_proveedor", "id_proveedor"),
+        Index("idx_compra_estado", "estado"),
     )
 
     id_compra: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -45,6 +47,7 @@ class DetalleCompra(Base):
     __table_args__ = (
         CheckConstraint("cantidad > 0", name="ck_detallecompra_cantidad"),
         CheckConstraint("costo_unitario >= 0", name="ck_detallecompra_costo"),
+        Index("idx_detallecompra_compra", "id_compra"),
     )
 
     id_detallecompra: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

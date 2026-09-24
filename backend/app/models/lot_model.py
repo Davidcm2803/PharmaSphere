@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -14,9 +14,14 @@ class Lote(Base):
     __tablename__ = "lote"
     __table_args__ = (
         UniqueConstraint(
-            "id_producto", "id_sucursal", "numero_lote", name="uq_lote_producto_sucursal_numero"
+            "id_producto",
+            "id_sucursal",
+            "numero_lote",
+            name="lote_id_producto_id_sucursal_numero_lote_key",
         ),
         CheckConstraint("cantidad >= 0", name="ck_lote_cantidad"),
+        Index("idx_lote_producto", "id_producto"),
+        Index("idx_lote_vencimiento", "fecha_vencimiento"),
     )
 
     id_lote: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

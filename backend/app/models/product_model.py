@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -16,6 +16,9 @@ class Producto(Base):
     __table_args__ = (
         CheckConstraint("precio > 0", name="ck_producto_precio"),
         CheckConstraint("costo >= 0", name="ck_producto_costo"),
+        Index("idx_producto_proveedor", "id_proveedor"),
+        Index("idx_producto_nombre", "nombre"),
+        Index("idx_producto_categoria", "categoria"),
     )
 
     id_producto: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

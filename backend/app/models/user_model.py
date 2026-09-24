@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -18,6 +18,8 @@ class Usuario(Base):
             name="chk_usuario_auth",
         ),
         CheckConstraint("rol IN ('admin', 'empleado', 'cliente')", name="ck_usuario_rol"),
+        Index("idx_usuario_cliente", "id_cliente"),
+        Index("idx_usuario_empleado", "id_empleado"),
     )
 
     id_usuario: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

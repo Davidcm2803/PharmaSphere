@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,8 @@ class Receta(Base):
         CheckConstraint(
             "estado IN ('vigente', 'usada', 'vencida')", name="ck_receta_estado"
         ),
+        Index("idx_receta_cliente", "id_cliente"),
+        Index("idx_receta_producto", "id_producto"),
     )
 
     id_receta: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

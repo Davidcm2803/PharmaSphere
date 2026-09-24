@@ -2,7 +2,7 @@
 
 # Importar aqui todos los modelos para que Alembic los detecte
 
-from app.models.sucursal_model import Sucursal
+from app.models.branch_model import Sucursal
 from app.models.supplier_model import Proveedor
 from app.models.product_model import Producto
 from app.models.employee_model import Empleado

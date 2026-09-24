@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -18,6 +18,7 @@ TIPOS_MOVIMIENTO = (
     "vencimiento",
 )
 
+
 class MovimientoInventario(Base):
     __tablename__ = "movimiento_inventario"
     __table_args__ = (
@@ -27,6 +28,8 @@ class MovimientoInventario(Base):
             name="ck_movimiento_tipo",
         ),
         CheckConstraint("cantidad <> 0", name="ck_movimiento_cantidad"),
+        Index("idx_movimiento_producto", "id_producto", "id_sucursal"),
+        Index("idx_movimiento_fecha", "fecha"),
     )
 
     id_movimiento: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
