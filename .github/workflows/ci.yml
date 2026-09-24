@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1"   # lunes 12:00 UTC: revisa vulnerabilidades nuevas aunque no haya PRs
 
 jobs:
   backend:
@@ -42,7 +44,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Instalar dependencias
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt pytest httpx
 
       - name: Crear esquema base y seed
         run: |
@@ -82,3 +84,17 @@ jobs:
 
       - name: Lint (eslint)
         run: npm run lint
+
+  audit-backend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version:
