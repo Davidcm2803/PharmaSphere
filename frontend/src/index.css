@@ -1,1 +1,66 @@
-﻿@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-brand-background:  #f7faf8;
+  --color-brand-foreground:  #252b35;
+  --color-brand-card:        #ffffff;
+
+  --color-brand-primary:            #00aa82;
+  --color-brand-primary-foreground: #ffffff;
+
+  --color-brand-muted:            #f2f7f4;
+  --color-brand-muted-foreground: #717780;
+
+  --color-brand-border: #e1e8e3;
+  --color-brand-input:  #e1e8e3;
+  --color-brand-ring:   #00aa82;
+
+  --color-brand-accent:            #edf6f1;
+  --color-brand-accent-foreground: #1b6048;
+
+  /* variantes derivadas, por si necesitas mas peso o hover states */
+  --color-brand-primary-dark:  #00876a;
+  --color-brand-primary-light: #33bd9e;
+  --color-brand-accent-deep:   #1b6048;
+
+  --font-display: "Inter", sans-serif;
+  --font-body:    "Inter", sans-serif;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-brand-background);
+    color: var(--color-brand-foreground);
+  }
+}
+
+@layer utilities {
+  .bg-brand-glow {
+    background-image: radial-gradient(circle, var(--color-brand-primary), var(--color-brand-accent-deep) 60%, var(--color-brand-foreground) 100%);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-3%, 4%) scale(1.08); }
+}
+@keyframes float-slow-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -3%) scale(1.05); }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float-node {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float-node { animation: float-node 4s ease-in-out infinite; }
+.animate-float-slow { animation: float-slow 14s ease-in-out infinite; }
+.animate-float-slow-reverse { animation: float-slow-reverse 18s ease-in-out infinite; }
+.animate-fade-up { animation: fade-up 0.8s cubic-bezier(0.16,1,0.3,1) both; }
