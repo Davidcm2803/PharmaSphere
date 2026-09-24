@@ -50,6 +50,8 @@ jobs:
           psql -h localhost -U pharma_user -d pharmasphere -v ON_ERROR_STOP=1 -f app/db/init/init.sql
           psql -h localhost -U pharma_user -d pharmasphere -v ON_ERROR_STOP=1 -f app/db/init/seed.sql
 
-      - name: Marcar punto de partida y migrar
-        run: |
-          alembic
+      - name: Marcar punto de partida
+        run: alembic stamp 6033595434e9
+
+      - name: Aplicar migraciones
+        run: alembic upgrade head
