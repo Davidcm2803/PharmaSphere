@@ -36,4 +36,3 @@ app.include_router(ai_routes.router, prefix="/api/ai", tags=["ai"])
 @app.get("/health")
 def health_check():
     return {"status": "ok", "environment": settings.environment}
-#test
