@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # Contenedor de Postgres que vive solo mientras corre el job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharma_user
+          POSTGRES_PASSWORD: pharma_pass
+          POSTGRES_DB: pharmasphere
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pharma_user -d pharmasphere"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://pharma_user:pharma_pass@localhost:5432/pharmasphere
+      SECRET_KEY: ci-secret-key
+      PGPASSWORD: pharma_pass
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pytest
+
+      - name: Crear esquema base y seed
+        run: |
+          psql -h localhost -U pharma_user -d pharmasphere -v ON_ERROR_STOP=1 -f app/db/init/init.sql
+          psql -h localhost -U pharma_user -d pharmasphere -v ON_ERROR_STOP=1 -f app/db/init/seed.sql
+
+      - name: Marcar punto de partida y migrar
+        run: |
+          alembic
