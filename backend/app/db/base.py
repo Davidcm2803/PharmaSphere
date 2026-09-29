@@ -1,7 +1,6 @@
 ﻿from app.db.session import Base
 
-# Importar aqui todos los modelos para que Alembic los detecte
-
+# Importar aqui todos los modelos para que Alembic / create_all los detecte
 from app.models.branch_model import Sucursal
 from app.models.supplier_model import Proveedor
 from app.models.product_model import Producto
