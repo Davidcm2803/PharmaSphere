@@ -1,7 +1,13 @@
-﻿from fastapi import FastAPI
+﻿from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.db.base import Base
+from app.db.session import engine
+from app.middlewares.auth_middleware import AuthMiddleware
+from app.middlewares.error_handler import register_exception_handlers
 from app.routes import (
     auth_routes,
     inventory_routes,
@@ -13,8 +19,19 @@ from app.routes import (
     ai_routes,
 )
 
-app = FastAPI(title="PharmaSphere API", version="0.1.0")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Crea las tablas que falten (ej. "usuario") sin tocar las existentes
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="PharmaSphere API", version="0.1.0", lifespan=lifespan)
+
+register_exception_handlers(app)
+
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
