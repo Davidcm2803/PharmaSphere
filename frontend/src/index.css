@@ -23,6 +23,12 @@
   --color-brand-primary-dark:  #00876a;
   --color-brand-primary-light: #33bd9e;
   --color-brand-accent-deep:   #1b6048;
+   --color-brand-success:       #16a34a;
+  --color-brand-success-soft:  #dcfce7;
+  --color-brand-warning:       #d97706;
+  --color-brand-warning-soft:  #fef3c7;
+  --color-brand-danger:        #dc2626;
+  --color-brand-danger-soft:   #fee2e2;
 
   --font-display: "Inter", sans-serif;
   --font-body:    "Inter", sans-serif;
