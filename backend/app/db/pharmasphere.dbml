@@ -1,72 +1,185 @@
-﻿Table sucursal {
-  id_sucursal int [pk, increment]
-  nombre varchar
-  direccion varchar
-  telefono varchar
+﻿// PharmaSphere - modelo de datos completo
+
+
+Table sucursal {
+  id_sucursal int [pk, increment]      // identificador de la sucursal
+  nombre varchar                       // nombre de la sucursal
+  direccion varchar                    // direccion fisica
+  telefono varchar                     // telefono de contacto
+  activo boolean                       // false = sucursal cerrada/deshabilitada, sin borrarla
+  created_at timestamp                 // fecha en que se registro la sucursal
 }
 
 Table proveedor {
-  id_proveedor int [pk, increment]
-  nombre varchar
-  contacto varchar
+  id_proveedor int [pk, increment]     // identificador del proveedor
+  nombre varchar                       // nombre o razon social del proveedor
+  contacto varchar                     // nombre de la persona de contacto
+  telefono varchar                     // telefono del proveedor
+  correo varchar                       // correo del proveedor
+  activo boolean                       // false = proveedor deshabilitado, sin borrarlo
+  created_at timestamp                 // fecha de registro del proveedor
 }
 
 Table producto {
-  id_producto int [pk, increment]
-  nombre varchar
-  descripcion varchar
-  categoria varchar
-  precio float
-  requiere_receta boolean
-  id_proveedor int [ref: > proveedor.id_proveedor]
+  id_producto int [pk, increment]      // identificador del producto
+  nombre varchar                       // nombre del producto
+  descripcion varchar                  // descripcion para el catalogo
+  categoria varchar                    // categoria del producto (texto libre por ahora)
+  precio decimal                       // precio de venta al publico
+  costo decimal                        // costo de compra, usado para calcular ganancia en reportes
+  requiere_receta boolean              // true = no se puede vender sin receta valida
+  imagen_url varchar                   // url de la imagen del producto para la tienda
+  activo boolean                       // false = producto deshabilitado, sin borrarlo
+  id_proveedor int [ref: > proveedor.id_proveedor]  // proveedor principal del producto
+  created_at timestamp                 // fecha en que se creo el producto
+  updated_at timestamp                 // ultima vez que se edito el producto
 }
 
 Table empleado {
-  id_empleado int [pk, increment]
-  nombre varchar
-  puesto varchar
-  id_sucursal int [ref: > sucursal.id_sucursal]
+  id_empleado int [pk, increment]      // identificador del empleado
+  nombre varchar                       // nombre del empleado
+  puesto varchar                       // puesto o cargo (cajero, farmaceutico, etc)
+  id_sucursal int [ref: > sucursal.id_sucursal]  // sucursal donde trabaja
+  activo boolean                       // false = empleado dado de baja, sin borrarlo
+  created_at timestamp                 // fecha de contratacion/registro
 }
 
 Table cliente {
-  id_cliente int [pk, increment]
-  nombre varchar
-  cedula varchar
-  telefono varchar
-  correo varchar
-  direccion varchar
+  id_cliente int [pk, increment]       // identificador del cliente
+  nombre varchar                       // nombre completo del cliente
+  cedula varchar [unique]              // cedula, usada para buscar rapido en el mostrador
+  telefono varchar                     // telefono del cliente
+  correo varchar [unique]              // correo del cliente
+  direccion varchar                    // direccion para retiro o referencia
+  created_at timestamp                 // fecha de registro del cliente
+}
+
+// Login por Firebase o local; al menos uno de los dos debe existir
+Table usuario {
+  id_usuario int [pk, increment]       // identificador del usuario del sistema
+  firebase_uid varchar [unique, note: "null si el usuario se creo local (admin/empleado)"]  // id que da Firebase al loguearse
+  password_hash varchar [note: "null si el usuario entra por Firebase"]  // hash de la contraseña (login local), nunca texto plano
+  correo varchar [unique, not null]    // correo de acceso, sirve para ambos tipos de login
+  nombre varchar                       // nombre para mostrar en el sistema
+  rol varchar [note: "admin | empleado | cliente"]  // define que puede hacer el usuario
+  id_cliente int [ref: > cliente.id_cliente]    // solo si el usuario es un cliente
+  id_empleado int [ref: > empleado.id_empleado] // solo si el usuario es un empleado/admin
+  activo boolean                       // false = acceso bloqueado, sin borrar el usuario
+  created_at timestamp                 // fecha de creacion del usuario
+
+  Note: "CHECK: firebase_uid IS NOT NULL OR password_hash IS NOT NULL"
 }
 
 Table inventario {
-  id_inventario int [pk, increment]
-  id_producto int [ref: > producto.id_producto]
-  id_sucursal int [ref: > sucursal.id_sucursal]
-  cantidad int
-  stock_minimo int
+  id_inventario int [pk, increment]    // identificador del registro de inventario
+  id_producto int [ref: > producto.id_producto]   // producto que se esta contando
+  id_sucursal int [ref: > sucursal.id_sucursal]   // sucursal donde esta ese stock
+  cantidad int                         // cantidad total disponible en esa sucursal
+  stock_minimo int                     // debajo de este numero se considera stock bajo
+
+  indexes {
+    (id_producto, id_sucursal) [unique]  // un producto solo tiene una fila de inventario por sucursal
+  }
 }
 
+// Ordenes de compra hechas a los proveedores
+Table compra {
+  id_compra int [pk, increment]        // identificador de la compra
+  id_proveedor int [ref: > proveedor.id_proveedor]  // a quien se le compro
+  id_sucursal int [ref: > sucursal.id_sucursal]     // sucursal que recibe la mercaderia
+  id_usuario int [ref: > usuario.id_usuario]        // quien registro la compra
+  fecha timestamp                      // fecha en que se hizo la orden
+  fecha_recepcion timestamp            // fecha en que se recibio la mercaderia (null si sigue pendiente)
+  estado varchar [note: "pendiente | recibida | cancelada"]  // estado de la orden
+  total decimal                        // total de la compra
+}
+
+// Productos incluidos en cada compra
+Table detallecompra {
+  id_detallecompra int [pk, increment] // identificador de la linea
+  id_compra int [ref: > compra.id_compra]      // a que compra pertenece
+  id_producto int [ref: > producto.id_producto] // producto comprado
+  cantidad int                         // cantidad pedida
+  costo_unitario decimal               // costo por unidad en esa compra
+}
+
+// Lotes con fecha de vencimiento (se crean al recibir una compra)
+Table lote {
+  id_lote int [pk, increment]          // identificador del lote
+  id_producto int [ref: > producto.id_producto]  // producto de este lote
+  id_sucursal int [ref: > sucursal.id_sucursal]  // sucursal donde esta el lote
+  id_compra int [ref: > compra.id_compra]        // compra que genero este lote (null si es del seed)
+  numero_lote varchar                  // numero de lote que trae el empaque
+  fecha_vencimiento date               // fecha de vencimiento del lote
+  cantidad int                         // cantidad restante de ese lote
+  created_at timestamp                 // fecha en que se registro el lote
+
+  indexes {
+    (id_producto, id_sucursal, numero_lote) [unique]  // no se repite el mismo lote en la misma sucursal
+  }
+}
+
+// Ventas, tanto online (tienda) como en mostrador
 Table venta {
-  id_venta int [pk, increment]
-  fecha date
-  id_sucursal int [ref: > sucursal.id_sucursal]
-  id_empleado int [ref: > empleado.id_empleado]
-  id_cliente int [ref: > cliente.id_cliente]
-  total float
-  tipo varchar
+  id_venta int [pk, increment]         // identificador de la venta
+  fecha timestamp                      // fecha y hora de la venta
+  id_sucursal int [ref: > sucursal.id_sucursal]  // sucursal donde se vendio o de donde se despacha
+  id_empleado int [ref: > empleado.id_empleado, note: "null en compras online"]  // quien la vendio en mostrador
+  id_cliente int [ref: > cliente.id_cliente]     // cliente que compro (puede ser null en mostrador anonimo)
+  total decimal                        // total de la venta, calculado por el backend
+  tipo varchar [note: "online | mostrador"]      // canal por el que se hizo la venta
+  estado varchar [note: "pendiente | pagada | retirada | cancelada"]  // estado del pedido
+  metodo_pago varchar                  // tarjeta, efectivo, sinpe, etc
+  tarjeta_ultimos_4 varchar [note: "solo para mostrar en el recibo; el pago se simula en el frontend"]  // ultimos 4 digitos, nunca la tarjeta completa
 }
 
+// Productos vendidos en cada venta
 Table detalleventa {
-  id_detalleventa int [pk, increment]
-  id_venta int [ref: > venta.id_venta]
-  id_producto int [ref: > producto.id_producto]
-  cantidad int
-  precio_unitario float
+  id_detalleventa int [pk, increment]  // identificador de la linea
+  id_venta int [ref: > venta.id_venta]        // a que venta pertenece
+  id_producto int [ref: > producto.id_producto]  // producto vendido
+  cantidad int                         // cantidad vendida
+  precio_unitario decimal              // precio al momento de la venta (no cambia si el precio del producto cambia despues)
 }
 
+// Recetas medicas de los clientes
 Table receta {
-  id_receta int [pk, increment]
-  id_cliente int [ref: > cliente.id_cliente]
-  medico varchar
-  id_producto int [ref: > producto.id_producto]
-  fecha date
+  id_receta int [pk, increment]        // identificador de la receta
+  id_cliente int [ref: > cliente.id_cliente]     // cliente al que pertenece
+  medico varchar                       // nombre del medico que la emitio
+  id_producto int [ref: > producto.id_producto]  // producto que ampara la receta
+  cantidad int                         // cantidad autorizada por la receta
+  fecha date                           // fecha de emision
+  vigencia_hasta date                  // fecha limite para usarla
+  estado varchar [note: "vigente | usada | vencida"]  // estado actual de la receta
+  archivo_url varchar                  // foto o escaneo de la receta, si la suben
+  id_venta int [ref: > venta.id_venta, note: "venta en la que se uso la receta"]  // null hasta que se use
+}
+
+// Historial / kardex de movimientos de stock
+// cantidad positiva = entra stock, negativa = sale stock
+Table movimiento_inventario {
+  id_movimiento int [pk, increment]    // identificador del movimiento
+  id_producto int [ref: > producto.id_producto]  // producto afectado
+  id_sucursal int [ref: > sucursal.id_sucursal]  // sucursal donde ocurrio
+  id_lote int [ref: > lote.id_lote]    // lote afectado, si aplica
+  tipo varchar [note: "venta | compra | ajuste | transferencia_entrada | transferencia_salida | vencimiento"]  // que origino el movimiento
+  cantidad int                         // cuanto cambio el stock (positivo o negativo)
+  motivo varchar                       // texto libre, sobre todo para ajustes manuales
+  id_usuario int [ref: > usuario.id_usuario]  // quien hizo el movimiento
+  id_venta int [ref: > venta.id_venta]        // venta relacionada, si aplica
+  id_compra int [ref: > compra.id_compra]     // compra relacionada, si aplica
+  fecha timestamp                      // fecha y hora del movimiento
+}
+
+// Documentos fuente para el RAG (manuales, politicas, fichas de medicamentos)
+Table documento {
+  id_documento int [pk, increment]     // identificador del documento
+  titulo varchar                       // titulo del documento
+  tipo varchar                         // tipo de documento (manual, politica, ficha, etc)
+  contenido text                       // texto completo, si se guarda directo en la base
+  ruta varchar                         // ruta o url del archivo original, si aplica
+  indexado boolean                     // true si ya se genero su embedding en Qdrant
+  id_usuario int [ref: > usuario.id_usuario]  // quien subio el documento
+  created_at timestamp                 // fecha en que se subio
 }

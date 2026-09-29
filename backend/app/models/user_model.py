@@ -1,4 +1,11 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from app.db.session import Base
 
@@ -6,13 +13,94 @@ from app.db.session import Base
 class Usuario(Base):
     __tablename__ = "usuario"
 
-    id_usuario = Column(Integer, primary_key=True, index=True)
-    # Opcional: solo se llena si el usuario viene de Firebase
-    firebase_uid = Column(String(128), unique=True, nullable=True, index=True)
-    nombre = Column(String(150), nullable=False)
-    correo = Column(String(150), unique=True, nullable=False, index=True)
-    # Opcional: un usuario de Firebase no tiene contraseña propia
-    password_hash = Column(String(255), nullable=True)
-    rol = Column(String(20), nullable=False, default="cliente")
-    activo = Column(Boolean, nullable=False, default=True)
-    creado_en = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        CheckConstraint(
+            "firebase_uid IS NOT NULL OR password_hash IS NOT NULL",
+            name="chk_usuario_auth",
+        ),
+        CheckConstraint(
+            "rol IN ('admin', 'empleado', 'cliente')",
+            name="ck_usuario_rol",
+        ),
+        Index("idx_usuario_cliente", "id_cliente"),
+        Index("idx_usuario_empleado", "id_empleado"),
+    )
+
+    id_usuario: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+        index=True,
+    )
+
+    firebase_uid: Mapped[Optional[str]] = mapped_column(
+        String(128),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    nombre: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+
+    correo: Mapped[str] = mapped_column(
+        String(150),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    rol: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="cliente",
+    )
+
+    id_cliente: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("cliente.id_cliente"),
+        nullable=True,
+    )
+
+    id_empleado: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("empleado.id_empleado"),
+        nullable=True,
+    )
+
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    # Relaciones
+    cliente: Mapped[Optional["Cliente"]] = relationship(
+        back_populates="usuario"
+    )
+
+    empleado: Mapped[Optional["Empleado"]] = relationship(
+        back_populates="usuario"
+    )
+
+    compras: Mapped[List["Compra"]] = relationship(
+        back_populates="usuario"
+    )
+
+    movimientos: Mapped[List["MovimientoInventario"]] = relationship(
+        back_populates="usuario"
+    )
+
+    documentos: Mapped[List["Documento"]] = relationship(
+        back_populates="usuario"
+    )

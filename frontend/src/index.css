@@ -58,6 +58,7 @@
     transform: translate(-3%, 4%) scale(1.08);
   }
 }
+
 @keyframes float-slow-reverse {
   0%,
   100% {
@@ -67,6 +68,7 @@
     transform: translate(4%, -3%) scale(1.05);
   }
 }
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -77,6 +79,7 @@
     transform: translateY(0);
   }
 }
+
 @keyframes float-node {
   0%,
   100% {
@@ -90,12 +93,15 @@
 .animate-float-node {
   animation: float-node 4s ease-in-out infinite;
 }
+
 .animate-float-slow {
   animation: float-slow 14s ease-in-out infinite;
 }
+
 .animate-float-slow-reverse {
   animation: float-slow-reverse 18s ease-in-out infinite;
 }
+
 .animate-fade-up {
   animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
