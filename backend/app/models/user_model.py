@@ -29,14 +29,12 @@ class Usuario(Base):
     id_usuario: Mapped[int] = mapped_column(
         primary_key=True,
         autoincrement=True,
-        index=True,
     )
 
     firebase_uid: Mapped[Optional[str]] = mapped_column(
         String(128),
         unique=True,
         nullable=True,
-        index=True,
     )
 
     password_hash: Mapped[Optional[str]] = mapped_column(
@@ -44,16 +42,15 @@ class Usuario(Base):
         nullable=True,
     )
 
-    nombre: Mapped[str] = mapped_column(
+    nombre: Mapped[Optional[str]] = mapped_column(
         String(150),
-        nullable=False,
+        nullable=True,
     )
 
     correo: Mapped[str] = mapped_column(
         String(150),
         unique=True,
         nullable=False,
-        index=True,
     )
 
     rol: Mapped[str] = mapped_column(
@@ -78,8 +75,8 @@ class Usuario(Base):
         default=True,
     )
 
-    creado_en: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(),
         nullable=False,
         server_default=func.now(),
     )
