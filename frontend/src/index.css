@@ -45,6 +45,18 @@
   }
 }
 
+.dark {
+  --color-brand-background: #0f1512;
+  --color-brand-foreground: #e6ece8;
+  --color-brand-card: #161d19;
+  --color-brand-muted: #1c2520;
+  --color-brand-muted-foreground: #9aa59f;
+  --color-brand-border: #28332d;
+  --color-brand-input: #28332d;
+  --color-brand-accent: #16251f;
+  --color-brand-accent-foreground: #6fd6b8;
+}
+
 @layer utilities {
   .bg-brand-glow {
     background-image: radial-gradient(

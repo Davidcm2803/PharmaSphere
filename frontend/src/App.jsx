@@ -1,31 +1,28 @@
-﻿import { Link, Navigate, Route, Routes } from "react-router-dom";
+﻿import { Navigate, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home/home";
 import AdminLayout from "./components/layout/AdminLayout";
+import Placeholder from "./pages/Admin/Placeholder";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import Placeholder from "./pages/admin/Placeholder";
 import { adminNav } from "./config/adminNav";
 
-function Home() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Inicio</h1>
-      <Link to="/admin" className="text-brand-primary underline">
-        Ir al panel de administración
-      </Link>
-    </div>
-  );
-}
+// BrowserRouter y AuthProvider viven en main.jsx
 
 export default function App() {
   return (
     <Routes>
+      {/* Cliente  */}
       <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Placeholder title="Login (tareas #2 y #3)" />} />
 
+      {/* Admin: solo admin y empleado. Para algo solo de admin: roles={["admin"]} ejemplo la vista de ingresar nuevo empleado */}
       <Route element={<ProtectedRoute roles={["admin", "empleado"]} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           {adminNav.map(({ path, label }) => (
-            <Route key={path} path={path} element={<Placeholder title={label} />} />
+            <Route
+              key={path}
+              path={path}
+              element={<Placeholder title={label} />}
+            />
           ))}
         </Route>
       </Route>
