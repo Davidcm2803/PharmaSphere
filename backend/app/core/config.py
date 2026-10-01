@@ -11,5 +11,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     qdrant_url: str = "http://qdrant:6333"
 
+    # Firebase Admin (service account desde variables de entorno)
+    firebase_project_id: str = ""
+    firebase_client_email: str = ""
+    firebase_private_key: str = ""
+
 
 settings = Settings()

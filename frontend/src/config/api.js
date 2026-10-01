@@ -5,6 +5,7 @@ export const API_URL =
 export const ENDPOINTS = {
   AUTH_REGISTER: "/auth/register", // POST
   AUTH_LOGIN: "/auth/login", // POST
+  AUTH_FIREBASE: "/auth/firebase", // POST { id_token, nombre? }
   AUTH_ME: "/auth/me", // GET (requiere token)
   AUTH_USERS: "/auth/users", // GET (solo admin)
 };

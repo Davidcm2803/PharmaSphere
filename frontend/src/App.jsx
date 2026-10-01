@@ -1,9 +1,8 @@
 ﻿import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home/home";
-import AdminLayout from "./components/layout/AdminLayout";
+import AdminLayout, { adminNav } from "./components/layout/AdminLayout";
 import Placeholder from "./pages/Admin/Placeholder";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import { adminNav } from "./config/adminNav";
 
 // BrowserRouter y AuthProvider viven en main.jsx
 

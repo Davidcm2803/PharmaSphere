@@ -6,6 +6,12 @@ import {
   getToken,
   setToken,
 } from "../config/api";
+import {
+  firebaseSignOut,
+  loginWithEmail,
+  loginWithGoogle as googleLogin,
+  registerWithEmail,
+} from "../lib/firebaseAuth";
 
 const AuthContext = createContext(null);
 
@@ -22,37 +28,36 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (correo, password) => {
-    const data = await apiFetch(ENDPOINTS.AUTH_LOGIN, {
-      method: "POST",
-      body: { correo, password },
-      auth: false,
-    });
-    setToken(data.access_token);
-    setUser(data.user);
-    return data.user;
+  const applySession = ({ access_token, user }) => {
+    setToken(access_token);
+    setUser(user);
+    return user;
   };
 
-  const register = async (nombre, correo, password) => {
-    await apiFetch(ENDPOINTS.AUTH_REGISTER, {
-      method: "POST",
-      body: { nombre, correo, password },
-      auth: false,
-    });
-    return login(correo, password);
+  const login = async (correo, password) =>
+    applySession(await loginWithEmail(correo, password));
+
+  const register = async (nombre, correo, password) =>
+    applySession(await registerWithEmail(nombre, correo, password));
+
+  const loginWithGoogle = async () => {
+    const data = await googleLogin();
+    return data ? applySession(data) : null;
   };
 
   const logout = () => {
     clearToken();
     setUser(null);
+    firebaseSignOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, loginWithGoogle, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
