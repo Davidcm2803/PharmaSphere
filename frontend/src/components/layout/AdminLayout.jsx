@@ -9,6 +9,7 @@ import {
 import { LogOut, Menu, Store, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const adminNav = [
   { path: "dashboard", label: "Dashboard" },
   { path: "productos", label: "Productos" },
@@ -26,18 +27,18 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Cierra el menú al cambiar de ruta
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
+  // El menu esta abierto solo en la ruta donde se abrio: al cambiar de ruta se cierra solo
+  const [openAt, setOpenAt] = useState(null);
+  const sidebarOpen = openAt === pathname;
+  const openSidebar = () => setOpenAt(pathname);
+  const closeSidebar = () => setOpenAt(null);
 
   // Cierra con la tecla Escape
   useEffect(() => {
     if (!sidebarOpen) return;
     const onKeyDown = (e) => {
-      if (e.key === "Escape") setSidebarOpen(false);
+      if (e.key === "Escape") setOpenAt(null);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -53,7 +54,7 @@ export default function AdminLayout() {
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={closeSidebar}
           aria-hidden="true"
         />
       )}
@@ -68,7 +69,7 @@ export default function AdminLayout() {
             PharmaSphere
           </span>
           <button
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeSidebar}
             className="text-brand-muted-foreground transition-colors hover:text-brand-foreground lg:hidden"
             aria-label="Cerrar menú"
           >
@@ -97,7 +98,7 @@ export default function AdminLayout() {
       <div className="min-w-0 lg:ml-56">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-brand-border bg-brand-card px-4 text-sm text-brand-muted-foreground sm:px-6 lg:justify-end">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={openSidebar}
             className="transition-colors hover:text-brand-foreground lg:hidden"
             aria-label="Abrir menú"
           >
