@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bell, LogOut, Menu, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -19,9 +20,23 @@ const iconBtn =
 
 export default function Topbar({ onMenu, onLogout }) {
   const { user } = useAuth();
-  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(params.get("q") ?? "");
   const firstName = (user?.nombre || user?.correo || "").split(/[\s@]/)[0];
   const date = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+
+  // Si el filtro se limpia desde la página, vacía también el input
+  useEffect(() => {
+    setQuery(params.get("q") ?? "");
+  }, [params]);
+
+  // Lleva la busqueda a la lista de productos
+  const onSearch = (e) => {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/admin/productos?q=${encodeURIComponent(q)}` : "/admin/productos");
+  };
 
   return (
     <header className="sticky top-0 z-20 flex h-[92px] items-center justify-between gap-4 border-b border-brand-border bg-brand-card px-5 sm:px-10">
@@ -38,7 +53,7 @@ export default function Topbar({ onMenu, onLogout }) {
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <form
           role="search"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={onSearch}
           className="relative hidden w-[280px] md:block"
         >
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted-foreground" />
