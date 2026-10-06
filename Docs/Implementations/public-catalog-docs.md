@@ -38,3 +38,4 @@
 
 - **Initial implementation:** experiencia pública responsive con estados de carga, vacío y error.
 - **Hardcoded catalog:** se eliminó la dependencia de FastAPI y se estableció el arreglo local como fuente única de productos.
+- **Responsive navbar:** se agregaron los accesos a Tienda, Categorías, Bienestar y Nosotros, un indicador de carrito y una búsqueda adaptable sin controles de perfil o usuario.

@@ -24,7 +24,7 @@ export function HomePage({ navigate }) {
           <div className="float-card float-card--bottom"><Icon name="heart" /> Elegido para vos</div>
         </div>
       </div>
-      <div className="container trust-row">
+      <div className="container trust-row" id="nosotros">
         <div className="trust-item"><span className="trust-icon"><Icon name="shield" /></span><div><strong>Productos confiables</strong><span>Información clara y verificada</span></div></div>
         <div className="trust-item"><span className="trust-icon"><Icon name="truck" /></span><div><strong>Entrega conveniente</strong><span>Recibí tu pedido con seguridad</span></div></div>
         <div className="trust-item"><span className="trust-icon"><Icon name="medical" /></span><div><strong>Cuidado responsable</strong><span>Aviso visible para medicamentos</span></div></div>
