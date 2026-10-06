@@ -15,7 +15,7 @@ export function CatalogPage({ navigate }) {
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const params = useMemo(() => ({ ...filters, page, pageSize: PAGE_SIZE }), [filters, page]);
-  const { items, total, loading, error, source, retry } = useProducts(params);
+  const { items, total, loading, error, retry } = useProducts(params);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const setFilter = (name, value) => {
@@ -37,7 +37,6 @@ export function CatalogPage({ navigate }) {
       </aside>
       <section className="catalog-content">
         <div className="catalog-toolbar"><span className="result-count">{loading ? "Buscando productos..." : `${total} producto${total === 1 ? "" : "s"}${filters.search ? ` para “${filters.search}”` : ""}`}</span><select className="sort-select" value={filters.sort} onChange={(event) => setFilter("sort", event.target.value)} aria-label="Ordenar productos"><option value="relevance">Más relevantes</option><option value="price-asc">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option><option value="name">Nombre A–Z</option></select></div>
-        {source === "fallback" && !loading && <div className="demo-notice">Vista de demostración: iniciá el backend para cargar el catálogo en tiempo real.</div>}
         {loading ? <ProductGridSkeleton count={6} /> : error ? <ErrorState message={error} retry={retry} /> : items.length === 0 ? <EmptyState reset={reset} /> : <div className="product-grid">{items.map((product) => <ProductCard key={product.id} product={product} navigate={navigate} />)}</div>}
         {!loading && !error && total > PAGE_SIZE && <nav className="pagination" aria-label="Paginación"><button className="page-button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>←</button>{Array.from({ length: pages }, (_, index) => index + 1).map((number) => <button key={number} className={`page-button ${page === number ? "active" : ""}`} onClick={() => setPage(number)}>{number}</button>)}<button className="page-button" disabled={page === pages} onClick={() => setPage((value) => value + 1)}>→</button></nav>}
       </section>

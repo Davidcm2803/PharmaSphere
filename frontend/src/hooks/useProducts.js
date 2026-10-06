@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getProductById, getProducts } from "../services/productService";
 
 export function useProducts(params) {
-  const [state, setState] = useState({ items: [], total: 0, error: null, source: null, requestId: null });
+  const [state, setState] = useState({ items: [], total: 0, error: null, requestId: null });
   const [requestKey, setRequestKey] = useState(0);
   const serializedParams = JSON.stringify(params);
   const requestId = `${serializedParams}:${requestKey}`;
@@ -28,7 +28,7 @@ export function useProducts(params) {
 }
 
 export function useProduct(productId) {
-  const [state, setState] = useState({ item: null, error: null, source: null, requestId: null });
+  const [state, setState] = useState({ item: null, error: null, requestId: null });
   const [requestKey, setRequestKey] = useState(0);
   const requestId = `${productId}:${requestKey}`;
 
@@ -37,7 +37,7 @@ export function useProduct(productId) {
     getProductById(productId, controller.signal)
       .then((result) => setState({ ...result, error: null, requestId }))
       .catch((error) => {
-        if (error.name !== "AbortError") setState({ item: null, error: error.message, source: null, requestId });
+        if (error.name !== "AbortError") setState({ item: null, error: error.message, requestId });
       });
     return () => controller.abort();
   }, [productId, requestKey, requestId]);

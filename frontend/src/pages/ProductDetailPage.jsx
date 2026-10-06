@@ -5,14 +5,13 @@ import { useProduct } from "../hooks/useProducts";
 const formatPrice = (price) => new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(price);
 
 export function ProductDetailPage({ productId, navigate }) {
-  const { item: product, loading, error, source, retry } = useProduct(productId);
+  const { item: product, loading, error, retry } = useProduct(productId);
 
   if (loading) return <div className="container detail-page"><ProductGridSkeleton count={2} /></div>;
   if (error) return <div className="container detail-page"><ErrorState message={error} retry={retry} /></div>;
 
   return <section className="detail-page"><div className="container">
     <button className="back-button" onClick={() => navigate("/productos")}>← Volver al catálogo</button>
-    {source === "fallback" && <div className="demo-notice">Vista de demostración: iniciá el backend para consultar disponibilidad en tiempo real.</div>}
     <div className="detail-grid">
       <div className="detail-image" style={{ backgroundColor: product.color }}>{product.image ? <img src={product.image} alt={product.name} /> : <div className="product-placeholder" aria-hidden="true" />}</div>
       <div className="detail-copy">

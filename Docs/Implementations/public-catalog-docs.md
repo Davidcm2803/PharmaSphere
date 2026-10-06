@@ -11,23 +11,22 @@
   - `frontend/src/App.jsx`: navegación liviana basada en History API.
   - `frontend/src/pages/`: Home, catálogo y detalle de producto.
   - `frontend/src/components/`: encabezado, pie, tarjetas y estados reutilizables.
-  - `frontend/src/services/productService.js`: único punto de integración con la API y normalización del contrato.
+  - `frontend/src/services/productService.js`: búsqueda, filtros, orden y paginación sobre el catálogo local.
   - `frontend/src/hooks/useProducts.js`: estado de carga, error, reintento y cancelación de solicitudes.
-  - `frontend/src/data/products.js`: datos semilla usados únicamente como fallback local.
-- **Data Flow:** la UI construye filtros, el hook solicita datos al servicio, el servicio consulta FastAPI y normaliza nombres en español o inglés. Si la API no está disponible y el fallback está habilitado, filtra los datos semilla y la UI muestra un aviso de demostración.
+  - `frontend/src/data/products.js`: fuente local con todos los productos quemados.
+- **Data Flow:** la UI construye los filtros, el hook solicita los datos al servicio local y el servicio filtra, ordena y pagina el arreglo de productos antes de devolverlo.
 
-## Backend contract
+## Data source
 
-- `GET /api/inventory/products`: acepta `search`, `category`, `minPrice`, `maxPrice`, `sort`, `page`, `pageSize` y `featured`.
-- `GET /api/inventory/products/{id}`: devuelve un producto.
-- Las respuestas de lista pueden usar `items`, `results`, `data` o un arreglo directo. El servicio reconoce campos como `name`/`nombre`, `price`/`precio` y `prescriptionRequired`/`requiere_receta`.
-- El backend actual todavía no implementa estas dos rutas. Mientras se agregan, el catálogo usa el fallback y lo informa en pantalla.
+- Los productos están definidos en `frontend/src/data/products.js`.
+- No se realizan solicitudes HTTP al backend.
+- Para agregar o modificar productos basta con editar el arreglo `PRODUCTS`; las categorías se generan automáticamente.
 
 ## Setup & Usage
 
 - **Prerequisites:** Node.js y dependencias instaladas con `npm install` dentro de `frontend`.
 - **Execution:** `npm run dev` y abrir `http://localhost:5173`.
-- **Configuration:** `VITE_API_URL` apunta por defecto a `http://localhost:8010`. Definir `VITE_ENABLE_CATALOG_FALLBACK=false` permite probar el estado de error real sin datos semilla.
+- **Configuration:** no requiere variables de entorno ni backend para mostrar el catálogo.
 
 ## Testing
 
@@ -37,4 +36,5 @@
 
 ## Changelog
 
-- **Initial implementation:** experiencia pública responsive, integración desacoplada, fallback demostrativo y estados de carga, vacío y error.
+- **Initial implementation:** experiencia pública responsive con estados de carga, vacío y error.
+- **Hardcoded catalog:** se eliminó la dependencia de FastAPI y se estableció el arreglo local como fuente única de productos.

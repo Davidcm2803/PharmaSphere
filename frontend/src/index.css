@@ -163,8 +163,6 @@ main { flex: 1; }
 .state-icon { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; margin: auto; color: var(--green); background: var(--green-pale); }
 .skeleton { height: 350px; border-radius: 22px; background: linear-gradient(90deg, #edf1ef 25%, #f7f9f8 45%, #edf1ef 65%); background-size: 300% 100%; animation: shimmer 1.35s infinite; }
 @keyframes shimmer { to { background-position: -100% 0; } }
-.demo-notice { background: #fff8e7; border: 1px solid #f0ddae; color: #785d1f; border-radius: 12px; padding: 10px 14px; font-size: .78rem; margin-bottom: 20px; }
-
 .footer { background: var(--ink); color: white; padding: 58px 0 25px; }
 .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 60px; }
 .footer .brand { color: white; margin-bottom: 18px; }
