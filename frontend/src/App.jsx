@@ -4,6 +4,7 @@ import { Footer } from "./components/Footer";
 import { HomePage } from "./pages/HomePage";
 import { CatalogPage } from "./pages/CatalogPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
+import { ShopPage } from "./pages/ShopPage";
 
 function readRoute() {
   const path = window.location.pathname;
@@ -11,6 +12,7 @@ function readRoute() {
 
   if (detailMatch) return { name: "detail", productId: detailMatch[1] };
   if (path.startsWith("/productos")) return { name: "catalog" };
+  if (path.startsWith("/tienda")) return { name: "shop" };
   return { name: "home" };
 }
 
@@ -34,6 +36,7 @@ function App() {
       <Header navigate={navigate} />
       <main>
         {route.name === "home" && <HomePage navigate={navigate} />}
+        {route.name === "shop" && <ShopPage navigate={navigate} />}
         {route.name === "catalog" && <CatalogPage key={window.location.search} navigate={navigate} />}
         {route.name === "detail" && (
           <ProductDetailPage productId={route.productId} navigate={navigate} />

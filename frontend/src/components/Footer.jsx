@@ -11,7 +11,7 @@ export function Footer({ navigate }) {
           </button>
           <p>Tu farmacia digital de confianza. Productos de salud y bienestar seleccionados con el cuidado que merecés.</p>
         </div>
-        <div><h3>Explorá</h3><button className="footer-link" onClick={() => navigate("/productos")}>Todos los productos</button><button className="footer-link" onClick={() => navigate("/productos?category=Suplementos")}>Vitaminas y suplementos</button></div>
+        <div><h3>Explorá</h3><button className="footer-link" onClick={() => navigate("/tienda")}>Tienda</button><button className="footer-link" onClick={() => navigate("/productos")}>Todos los productos</button><button className="footer-link" onClick={() => navigate("/productos?category=Suplementos")}>Vitaminas y suplementos</button></div>
         <div><h3>Ayuda</h3><button className="footer-link">Preguntas frecuentes</button><button className="footer-link">Contacto</button><button className="footer-link">Privacidad</button></div>
       </div>
       <div className="footer-bottom">© 2026 PharmaSphere. La información del sitio no sustituye la recomendación de un profesional de salud.</div>
