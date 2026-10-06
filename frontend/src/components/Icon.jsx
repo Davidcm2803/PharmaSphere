@@ -3,6 +3,7 @@ export function Icon({ name, size = 20, strokeWidth = 1.8 }) {
     search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
     capsule: <><path d="M8.5 4.5a5 5 0 0 1 7 0l4 4a5 5 0 0 1-7 7l-4-4a5 5 0 0 1 0-7Z"/><path d="m7 13 7-7"/></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16"/></>,
+    close: <><path d="m6 6 12 12M18 6 6 18"/></>,
     shield: <><path d="M12 3 5 6v5c0 4.6 2.8 8.3 7 10 4.2-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></>,
     truck: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
     heart: <path d="M20.8 5.7a5.5 5.5 0 0 0-7.8 0L12 6.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 22l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z"/>,
