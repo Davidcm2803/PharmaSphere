@@ -34,10 +34,6 @@ export function Header({ navigate }) {
           <Icon name="search" />
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar medicamentos, vitaminas..." aria-label="Buscar productos" />
         </form>
-        <button className="cart-button" aria-label="Carrito, 0 productos">
-          <Icon name="cart" size={25} />
-          <span className="cart-count">0</span>
-        </button>
       </div>
     </header>
   </>;
