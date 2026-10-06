@@ -26,12 +26,6 @@ export function Header({ navigate }) {
     });
   };
 
-  const goToSection = (sectionId) => {
-    setMenuOpen(false);
-    navigate(`/#${sectionId}`);
-    window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" }), 0);
-  };
-
   const goTo = (path) => {
     setMenuOpen(false);
     navigate(path);
@@ -43,7 +37,7 @@ export function Header({ navigate }) {
       ? "categories"
       : currentPath.startsWith("/tienda") || currentPath.startsWith("/productos")
         ? "shop"
-        : currentHash === "#nosotros"
+        : currentPath.startsWith("/nosotros") || currentHash === "#nosotros"
           ? "about"
           : null;
 
@@ -61,7 +55,7 @@ export function Header({ navigate }) {
           <button className={activeClass("shop", "nav-link")} aria-current={activeTab === "shop" ? "page" : undefined} onClick={() => goTo("/tienda")}>Tienda</button>
           <button className={activeClass("categories", "nav-link")} aria-current={activeTab === "categories" ? "page" : undefined} onClick={() => goTo("/categorias")}>Categorías</button>
           <button className={activeClass("wellness", "nav-link")} aria-current={activeTab === "wellness" ? "page" : undefined} onClick={() => goTo("/bienestar")}>Wellness Hub</button>
-          <button className={activeClass("about", "nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goToSection("nosotros")}>Nosotros</button>
+          <button className={activeClass("about", "nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goTo("/nosotros")}>Nosotros</button>
         </nav>
         <form className={`search-form ${searchOpen ? "search-form--open" : ""}`} role="search" onSubmit={submitSearch}>
           <Icon name="search" />
@@ -78,7 +72,7 @@ export function Header({ navigate }) {
           <button className={activeClass("shop", "mobile-nav-link")} aria-current={activeTab === "shop" ? "page" : undefined} onClick={() => goTo("/tienda")}>Tienda <span>→</span></button>
           <button className={activeClass("categories", "mobile-nav-link")} aria-current={activeTab === "categories" ? "page" : undefined} onClick={() => goTo("/categorias")}>Categorías <span>→</span></button>
           <button className={activeClass("wellness", "mobile-nav-link")} aria-current={activeTab === "wellness" ? "page" : undefined} onClick={() => goTo("/bienestar")}>Wellness Hub <span>→</span></button>
-          <button className={activeClass("about", "mobile-nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goToSection("nosotros")}>Nosotros <span>→</span></button>
+          <button className={activeClass("about", "mobile-nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goTo("/nosotros")}>Nosotros <span>→</span></button>
         </nav>
       </div>
     </header>

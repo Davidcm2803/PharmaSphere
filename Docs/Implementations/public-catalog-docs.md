@@ -45,3 +45,4 @@
 - **Categories preview:** `/categorias` muestra ocho accesos visuales. Cada categoría abre una ruta de Tienda, presenta una transición de carga y luego una vista “en construcción” con retorno a la tienda o al listado de categorías.
 - **Wellness Hub:** `/bienestar` ofrece una introducción editorial, guía destacada, artículos desplegables accesibles y un acceso contextual hacia la tienda.
 - **Active navigation:** el navbar de escritorio y el menú móvil resaltan automáticamente Tienda, Categorías, Wellness Hub o Nosotros según la ruta actual, incluyendo `aria-current`.
+- **About page:** `/nosotros` presenta la misión de PharmaSphere, una sección narrativa, tres principios de diseño responsable y accesos hacia Tienda y Wellness Hub.

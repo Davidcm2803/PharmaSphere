@@ -8,6 +8,7 @@ import { ShopPage } from "./pages/ShopPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { CategoryPreviewPage } from "./pages/CategoryPreviewPage";
 import { WellnessPage } from "./pages/WellnessPage";
+import { AboutPage } from "./pages/AboutPage";
 
 function readRoute() {
   const path = window.location.pathname;
@@ -20,6 +21,7 @@ function readRoute() {
   if (path.startsWith("/tienda")) return { name: "shop" };
   if (path.startsWith("/categorias")) return { name: "categories" };
   if (path.startsWith("/bienestar")) return { name: "wellness" };
+  if (path.startsWith("/nosotros")) return { name: "about" };
   return { name: "home" };
 }
 
@@ -47,6 +49,7 @@ function App() {
         {route.name === "categories" && <CategoriesPage navigate={navigate} />}
         {route.name === "categoryPreview" && <CategoryPreviewPage key={route.category} category={route.category} navigate={navigate} />}
         {route.name === "wellness" && <WellnessPage navigate={navigate} />}
+        {route.name === "about" && <AboutPage navigate={navigate} />}
         {route.name === "catalog" && <CatalogPage key={window.location.search} navigate={navigate} />}
         {route.name === "detail" && (
           <ProductDetailPage productId={route.productId} navigate={navigate} />
