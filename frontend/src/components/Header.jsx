@@ -3,6 +3,8 @@ import { Icon } from "./Icon";
 
 export function Header({ navigate }) {
   const params = new URLSearchParams(window.location.search);
+  const currentPath = window.location.pathname;
+  const currentHash = window.location.hash;
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -35,6 +37,18 @@ export function Header({ navigate }) {
     navigate(path);
   };
 
+  const activeTab = currentPath.startsWith("/bienestar")
+    ? "wellness"
+    : currentPath.startsWith("/categorias") || currentPath.startsWith("/tienda/categoria")
+      ? "categories"
+      : currentPath.startsWith("/tienda") || currentPath.startsWith("/productos")
+        ? "shop"
+        : currentHash === "#nosotros"
+          ? "about"
+          : null;
+
+  const activeClass = (tab, baseClass) => `${baseClass} ${activeTab === tab ? `${baseClass}--active` : ""}`.trim();
+
   return <>
     <div className="top-strip">Envío gratis en pedidos superiores a ₡20.000 · Entrega segura en todo Costa Rica</div>
     <header className="site-header">
@@ -44,10 +58,10 @@ export function Header({ navigate }) {
           <span><strong>PharmaSphere</strong><small>FARMACIA DIGITAL</small></span>
         </button>
         <nav className="nav-links" aria-label="Navegación principal">
-          <button className="nav-link nav-link--active" onClick={() => goTo("/tienda")}>Tienda</button>
-          <button className="nav-link" onClick={() => goTo("/categorias")}>Categorías</button>
-          <button className="nav-link" onClick={() => goTo("/productos?category=Suplementos")}>Bienestar</button>
-          <button className="nav-link" onClick={() => goToSection("nosotros")}>Nosotros</button>
+          <button className={activeClass("shop", "nav-link")} aria-current={activeTab === "shop" ? "page" : undefined} onClick={() => goTo("/tienda")}>Tienda</button>
+          <button className={activeClass("categories", "nav-link")} aria-current={activeTab === "categories" ? "page" : undefined} onClick={() => goTo("/categorias")}>Categorías</button>
+          <button className={activeClass("wellness", "nav-link")} aria-current={activeTab === "wellness" ? "page" : undefined} onClick={() => goTo("/bienestar")}>Wellness Hub</button>
+          <button className={activeClass("about", "nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goToSection("nosotros")}>Nosotros</button>
         </nav>
         <form className={`search-form ${searchOpen ? "search-form--open" : ""}`} role="search" onSubmit={submitSearch}>
           <Icon name="search" />
@@ -61,10 +75,10 @@ export function Header({ navigate }) {
           </button>
         </div>
         <nav id="mobile-navigation" className={`mobile-nav ${menuOpen ? "mobile-nav--open" : ""}`} aria-label="Navegación móvil">
-          <button className="mobile-nav-link" onClick={() => goTo("/tienda")}>Tienda <span>→</span></button>
-          <button className="mobile-nav-link" onClick={() => goTo("/categorias")}>Categorías <span>→</span></button>
-          <button className="mobile-nav-link" onClick={() => goTo("/productos?category=Suplementos")}>Bienestar <span>→</span></button>
-          <button className="mobile-nav-link" onClick={() => goToSection("nosotros")}>Nosotros <span>→</span></button>
+          <button className={activeClass("shop", "mobile-nav-link")} aria-current={activeTab === "shop" ? "page" : undefined} onClick={() => goTo("/tienda")}>Tienda <span>→</span></button>
+          <button className={activeClass("categories", "mobile-nav-link")} aria-current={activeTab === "categories" ? "page" : undefined} onClick={() => goTo("/categorias")}>Categorías <span>→</span></button>
+          <button className={activeClass("wellness", "mobile-nav-link")} aria-current={activeTab === "wellness" ? "page" : undefined} onClick={() => goTo("/bienestar")}>Wellness Hub <span>→</span></button>
+          <button className={activeClass("about", "mobile-nav-link")} aria-current={activeTab === "about" ? "page" : undefined} onClick={() => goToSection("nosotros")}>Nosotros <span>→</span></button>
         </nav>
       </div>
     </header>
