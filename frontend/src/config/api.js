@@ -1,13 +1,17 @@
 export const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8010/api";
 
-// Deben coincidir con backend/app/routes/auth_routes.py (prefijo /api/auth)
+// Siempre debe coincidir con el prefijo del backend de app /api/auth)
 export const ENDPOINTS = {
   AUTH_REGISTER: "/auth/register", // POST
   AUTH_LOGIN: "/auth/login", // POST
   AUTH_FIREBASE: "/auth/firebase", // POST { id_token, nombre? }
   AUTH_ME: "/auth/me", // GET (requiere token)
   AUTH_USERS: "/auth/users", // GET (solo admin)
+  PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
+  CATEGORIES: "/categories", // GET público
+  SUPPLIERS: "/suppliers", // GET (lista para el dropdowm de proveedor)
+  SUPPLIER_OPTIONS: "/suppliers/options",
 };
 
 const TOKEN_KEY = "pharmasphere_token";

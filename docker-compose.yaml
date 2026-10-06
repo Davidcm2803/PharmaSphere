@@ -40,6 +40,8 @@
       - "8010:8000"
     volumes:
       - ./backend:/app
+      # cache de modelos para no descargarlos cada vez que se recrea el contenedor
+      - pharmasphere_hf_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -49,3 +51,4 @@
 volumes:
   pharmasphere_db_data:
   pharmasphere_qdrant_data:
+  pharmasphere_hf_cache:
