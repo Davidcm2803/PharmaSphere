@@ -1,15 +1,27 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "./Icon";
 
 export function Header({ navigate }) {
   const params = new URLSearchParams(window.location.search);
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
 
   const submitSearch = (event) => {
     event.preventDefault();
     const query = search.trim();
+    setSearchOpen(false);
     navigate(query ? `/productos?search=${encodeURIComponent(query)}` : "/productos");
+  };
+
+  const toggleSearch = () => {
+    setMenuOpen(false);
+    setSearchOpen((open) => {
+      const nextValue = !open;
+      if (nextValue) window.setTimeout(() => searchInputRef.current?.focus(), 0);
+      return nextValue;
+    });
   };
 
   const goToSection = (sectionId) => {
@@ -37,13 +49,17 @@ export function Header({ navigate }) {
           <button className="nav-link" onClick={() => goTo("/productos?category=Suplementos")}>Bienestar</button>
           <button className="nav-link" onClick={() => goToSection("nosotros")}>Nosotros</button>
         </nav>
-        <form className="search-form" role="search" onSubmit={submitSearch}>
+        <form className={`search-form ${searchOpen ? "search-form--open" : ""}`} role="search" onSubmit={submitSearch}>
           <Icon name="search" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar medicamentos, vitaminas..." aria-label="Buscar productos" />
+          <input ref={searchInputRef} value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Escape" && setSearchOpen(false)} placeholder="Buscar medicamentos, vitaminas..." aria-label="Buscar productos" />
+          <button className="search-close" type="button" onClick={() => setSearchOpen(false)} aria-label="Cerrar búsqueda"><Icon name="close" size={18} /></button>
         </form>
-        <button className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="mobile-navigation" aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}>
-          <Icon name={menuOpen ? "close" : "menu"} size={24} />
-        </button>
+        <div className="mobile-actions">
+          <button className={`search-toggle ${searchOpen ? "search-toggle--active" : ""}`} onClick={toggleSearch} aria-expanded={searchOpen} aria-label={searchOpen ? "Cerrar búsqueda" : "Abrir búsqueda"}><Icon name={searchOpen ? "close" : "search"} size={22} /></button>
+          <button className="menu-button" onClick={() => { setSearchOpen(false); setMenuOpen((open) => !open); }} aria-expanded={menuOpen} aria-controls="mobile-navigation" aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}>
+            <Icon name={menuOpen ? "close" : "menu"} size={24} />
+          </button>
+        </div>
         <nav id="mobile-navigation" className={`mobile-nav ${menuOpen ? "mobile-nav--open" : ""}`} aria-label="Navegación móvil">
           <button className="mobile-nav-link" onClick={() => goTo("/productos")}>Tienda <span>→</span></button>
           <button className="mobile-nav-link" onClick={() => goToSection("categorias")}>Categorías <span>→</span></button>

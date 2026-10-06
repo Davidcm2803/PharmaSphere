@@ -40,3 +40,4 @@
 - **Hardcoded catalog:** se eliminó la dependencia de FastAPI y se estableció el arreglo local como fuente única de productos.
 - **Responsive navbar:** se agregaron los accesos a Tienda, Categorías, Bienestar y Nosotros, además de una búsqueda adaptable sin controles de carrito, perfil o usuario.
 - **Mobile navigation:** en tablet y celular los accesos se presentan dentro de un menú desplegable; el buscador ocupa una segunda fila compacta en pantallas pequeñas.
+- **Mobile search:** en celular el campo permanece oculto y se abre desde un botón dedicado, con foco automático, cierre explícito y soporte para la tecla Escape.
