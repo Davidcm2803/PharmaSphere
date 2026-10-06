@@ -9,7 +9,7 @@ export function Footer({ navigate }) {
             <span className="brand-mark"><Icon name="capsule" size={25} /></span>
             <span><strong>PharmaSphere</strong><small>FARMACIA DIGITAL</small></span>
           </button>
-          <p>Tu farmacia digital de confianza. Productos de salud y bienestar seleccionados con el cuidado que merecés.</p>
+          <p className="footer-description">Tu farmacia digital de confianza. Productos de salud y bienestar seleccionados con el cuidado que merecés.</p>
         </div>
         <div className="footer-column"><h3>Explorá</h3><button className="footer-link" onClick={() => navigate("/tienda")}>Tienda</button><button className="footer-link" onClick={() => navigate("/productos")}>Todos los productos</button><button className="footer-link" onClick={() => navigate("/bienestar")}>Wellness Hub</button></div>
         <div className="footer-column"><h3>Compañía</h3><button className="footer-link" onClick={() => navigate("/nosotros")}>Nosotros</button><button className="footer-link">Contacto</button><button className="footer-link">Privacidad</button></div>
