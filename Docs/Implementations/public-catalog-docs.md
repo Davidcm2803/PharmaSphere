@@ -47,3 +47,4 @@
 - **Active navigation:** el navbar de escritorio y el menú móvil resaltan automáticamente Tienda, Categorías, Wellness Hub o Nosotros según la ruta actual, incluyendo `aria-current`.
 - **About page:** `/nosotros` presenta la misión de PharmaSphere, una sección narrativa, tres principios de diseño responsable y accesos hacia Tienda y Wellness Hub.
 - **Responsive audit:** se ajustaron todas las vistas para escritorio, tablet, móvil y pantallas de 360 px, incluyendo tipografía fluida, grillas, botones, estados, navegación, orientación horizontal y reducción de movimiento.
+- **Responsive footer:** en móvil la identidad ocupa una fila completa y los grupos Explorá y Compañía se distribuyen en dos columnas compactas.
