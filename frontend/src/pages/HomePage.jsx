@@ -16,7 +16,7 @@ export function HomePage({ navigate }) {
     <section className="section categories-section" id="categorias">
       <div className="container">
         <div className="section-head"><div><span className="eyebrow">Comprá por categoría</span><h2>Cuidado para cada día</h2></div><button className="text-button" onClick={() => navigate("/productos")}>Ver todas →</button></div>
-        <div className="category-grid">{categories.map((category) => <button className="category-card" key={category.name} onClick={() => navigate(`/productos?category=${encodeURIComponent(category.name)}`)}><span className="category-icon"><Icon name={category.icon} size={27} /></span><strong>{category.name}</strong><span>{category.caption}</span></button>)}</div>
+        <div className="category-grid">{categories.map((category) => <button className="category-card" key={category.name} onClick={() => navigate(`/tienda/categoria?name=${encodeURIComponent(category.name)}`)}><span className="category-icon"><Icon name={category.icon} size={27} /></span><strong>{category.name}</strong><span>{category.caption}</span></button>)}</div>
       </div>
     </section>
 

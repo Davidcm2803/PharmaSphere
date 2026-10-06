@@ -42,3 +42,4 @@
 - **Mobile navigation:** en tablet y celular los accesos se presentan dentro de un menú desplegable; el buscador ocupa una segunda fila compacta en pantallas pequeñas.
 - **Mobile search:** en celular el campo permanece oculto y se abre desde un botón dedicado, con foco automático, cierre explícito y soporte para la tecla Escape.
 - **Shop view:** el acceso Tienda abre `/tienda`, con hero comercial y una grilla de doce productos. Las tarjetas incluyen etiqueta, valoración, precio anterior y acción rápida, mientras “Ver todos” conduce al catálogo con filtros.
+- **Categories preview:** `/categorias` muestra ocho accesos visuales. Cada categoría abre una ruta de Tienda, presenta una transición de carga y luego una vista “en construcción” con retorno a la tienda o al listado de categorías.

@@ -45,7 +45,7 @@ export function Header({ navigate }) {
         </button>
         <nav className="nav-links" aria-label="Navegación principal">
           <button className="nav-link nav-link--active" onClick={() => goTo("/tienda")}>Tienda</button>
-          <button className="nav-link" onClick={() => goToSection("categorias")}>Categorías</button>
+          <button className="nav-link" onClick={() => goTo("/categorias")}>Categorías</button>
           <button className="nav-link" onClick={() => goTo("/productos?category=Suplementos")}>Bienestar</button>
           <button className="nav-link" onClick={() => goToSection("nosotros")}>Nosotros</button>
         </nav>
@@ -62,7 +62,7 @@ export function Header({ navigate }) {
         </div>
         <nav id="mobile-navigation" className={`mobile-nav ${menuOpen ? "mobile-nav--open" : ""}`} aria-label="Navegación móvil">
           <button className="mobile-nav-link" onClick={() => goTo("/tienda")}>Tienda <span>→</span></button>
-          <button className="mobile-nav-link" onClick={() => goToSection("categorias")}>Categorías <span>→</span></button>
+          <button className="mobile-nav-link" onClick={() => goTo("/categorias")}>Categorías <span>→</span></button>
           <button className="mobile-nav-link" onClick={() => goTo("/productos?category=Suplementos")}>Bienestar <span>→</span></button>
           <button className="mobile-nav-link" onClick={() => goToSection("nosotros")}>Nosotros <span>→</span></button>
         </nav>
