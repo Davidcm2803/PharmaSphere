@@ -125,14 +125,14 @@ export default function ShopPage() {
             error={error}
             onRetry={retry}
             onReset={() => setSp({})}
-            skeletons={6}
+            skeletons={3}
             className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3 2xl:grid-cols-4"
           />
 
-          {!loading && !error && pages > 1 && (
+          {!error && pages > 1 && (
             <nav aria-label="Paginación" className="mt-10 flex items-center justify-center gap-4">
               <button
-                disabled={page <= 1}
+                disabled={loading || page <= 1}
                 onClick={() => update({ page: String(page - 1) })}
                 aria-label="Página anterior"
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-border bg-brand-card text-brand-foreground transition-colors hover:border-brand-primary disabled:opacity-40 disabled:hover:border-brand-border"
@@ -141,7 +141,7 @@ export default function ShopPage() {
               </button>
               <span className="text-sm text-brand-muted-foreground">Página {page} de {pages}</span>
               <button
-                disabled={page >= pages}
+                disabled={loading || page >= pages}
                 onClick={() => update({ page: String(page + 1) })}
                 aria-label="Página siguiente"
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-border bg-brand-card text-brand-foreground transition-colors hover:border-brand-primary disabled:opacity-40 disabled:hover:border-brand-border"

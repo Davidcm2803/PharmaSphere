@@ -8,7 +8,7 @@ const COLUMNS = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-brand-border bg-brand-card">
+    <footer className="mt-auto border-t border-brand-border bg-brand-card">
       <div className="mx-auto grid max-w-[1536px] gap-10 px-4 py-12 sm:px-6 md:grid-cols-[2fr_1fr_1fr] lg:px-8">
         <div>
           <Link to="/" className="flex items-center gap-3">

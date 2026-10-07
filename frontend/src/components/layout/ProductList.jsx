@@ -33,7 +33,10 @@ export default function ProductList({
   skeletons = 4,
   className = GRID,
 }) {
-  if (loading) {
+  const firstLoad = loading && items === undefined;
+  const dim = loading ? "opacity-60 transition-opacity" : "transition-opacity";
+
+  if (firstLoad) {
     return (
       <div className={className} aria-busy="true">
         {Array.from({ length: skeletons }, (_, i) => (
@@ -55,17 +58,19 @@ export default function ProductList({
   }
   if (!items?.length) {
     return (
-      <StatePanel
-        icon={SearchX}
-        title="No encontramos productos"
-        text="Prueba con otro término o quita algunos filtros."
-        action={onReset && "Limpiar filtros"}
-        onClick={onReset}
-      />
+      <div className={dim} aria-busy={loading}>
+        <StatePanel
+          icon={SearchX}
+          title="No encontramos productos"
+          text="Prueba con otro término o quita algunos filtros."
+          action={onReset && "Limpiar filtros"}
+          onClick={onReset}
+        />
+      </div>
     );
   }
   return (
-    <div className={className}>
+    <div className={`${className} ${dim}`} aria-busy={loading}>
       {items.map((p) => (
         <ProductCard key={p.id_producto} product={p} />
       ))}
