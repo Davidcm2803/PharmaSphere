@@ -51,7 +51,7 @@ function HeroCarousel({ slides }) {
     <>
       <div
         ref={emblaRef}
-        className="select-none overflow-hidden rounded-[2rem] bg-brand-accent [&_img]:pointer-events-none"
+        className="w-full max-w-full select-none overflow-hidden rounded-[2rem] bg-brand-accent [&_img]:pointer-events-none"
         role="region"
         aria-roledescription="carrusel"
         aria-label="Productos destacados"
@@ -70,7 +70,7 @@ function HeroCarousel({ slides }) {
                 alt={name}
                 loading={i === 0 ? "eager" : "lazy"}
                 draggable={false}
-                className={`${frame} object-contain p-8 sm:p-12`}
+                className={`${frame} max-w-full object-contain p-6 sm:p-12`}
               />
             </div>
           ))}
@@ -108,9 +108,9 @@ export default function Hero() {
 
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto grid max-w-[1536px] items-center gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-2 lg:gap-12 lg:px-8 xl:gap-16">
+      <div className="mx-auto grid max-w-[1536px] grid-cols-1 items-center gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-2 lg:gap-12 lg:px-8 xl:gap-16">
         {/* Texto */}
-        <div>
+        <div className="min-w-0">
           <span className="inline-flex items-center gap-2 rounded-full bg-brand-accent px-3 py-1.5 text-xs font-semibold text-brand-accent-foreground">
             <Sparkles className="h-3.5 w-3.5" />
             Mejor cuidado, más simple
@@ -118,7 +118,9 @@ export default function Hero() {
 
           <h1 className="mt-5 text-4xl font-bold leading-[1.1] tracking-tight text-brand-foreground sm:text-5xl xl:text-6xl">
             Siéntete mejor.
-            <span className="mt-1 block text-3xl text-brand-primary sm:text-4xl xl:text-5xl">Vive con más energía.</span>
+            <span className="mt-1 block text-3xl text-brand-primary sm:text-4xl xl:text-5xl">
+              Vive con más energía.
+            </span>
           </h1>
 
           <p className="mt-5 max-w-md text-base leading-relaxed text-brand-muted-foreground">
@@ -126,7 +128,10 @@ export default function Hero() {
           </p>
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:mt-8">
-            <Button className={`${heroBtn} !bg-brand-foreground !text-brand-card hover:!opacity-90`} onClick={() => navigate("/shop")}>
+            <Button
+              className={`${heroBtn} !bg-brand-foreground !text-brand-card hover:!opacity-90`}
+              onClick={() => navigate("/shop")}
+            >
               Comprar medicamentos
               <ArrowUpRight className="h-4 w-4" />
             </Button>
@@ -137,7 +142,7 @@ export default function Hero() {
         </div>
 
         {/* Carrusel con productos de la API */}
-        <div className="relative">
+        <div className="relative min-w-0">
           {slides.length > 0 ? (
             <HeroCarousel slides={slides} />
           ) : (
@@ -154,9 +159,9 @@ export default function Hero() {
           {/* Oferta */}
           <Link
             to="/offers"
-            className="absolute -right-2 top-6 z-10 rotate-6 rounded-xl bg-brand-primary px-4 py-2.5 text-center text-brand-primary-foreground transition-transform hover:rotate-3 hover:scale-105 sm:-right-4 sm:top-10 sm:px-5 sm:py-3 "
+            className="absolute right-2 top-4 z-10 rotate-6 rounded-xl bg-brand-primary px-4 py-2.5 text-center text-brand-primary-foreground transition-transform hover:rotate-3 hover:scale-105 sm:-right-4 sm:top-10 sm:px-5 sm:py-3"
           >
-            <span className="block text-[11px] font-medium leading-none opacity-90 ">
+            <span className="block text-[11px] font-medium leading-none opacity-90">
               Ofertas de la semana
             </span>
             <span className="mt-1 block text-lg font-extrabold leading-none sm:text-xl">

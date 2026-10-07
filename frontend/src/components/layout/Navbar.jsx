@@ -22,7 +22,7 @@ const NAV_LINKS = [
   { to: "/about", label: "About us" },
 ];
 
-// Roles del backend que pueden entrar al panel. "cliente" nunca lo ve.
+// Roles del backend que pueden entrar al panel
 const STAFF_ROLES = ["admin", "empleado"];
 const THEME_KEY = "theme";
 
@@ -52,14 +52,12 @@ const linkClass = ({ isActive }) =>
       : "text-brand-muted-foreground hover:text-brand-foreground",
   );
 
-// Estilo compartido por el botón de login, logout y tema
 const outlineBtn = cn(
   "flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-colors",
   "border-brand-border bg-brand-card text-brand-muted-foreground",
   "hover:bg-brand-muted hover:text-brand-foreground",
 );
 
-// Items de la barra inferior (mobile)
 const bottomItem = (active = false) =>
   cn(
     "flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
@@ -78,14 +76,12 @@ export default function Navbar({ cartCount = 0 }) {
 
   const isStaff = STAFF_ROLES.includes(user?.rol);
 
-  // El modo oscuro vive solo mientras el Navbar está montado.
-  // Como el Navbar solo está en las páginas públicas, el admin nunca lo recibe.
+  // El modo oscuro vive solo mientras en este componente
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     try {
       localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
     } catch {
-      // ignorar
     }
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
@@ -107,7 +103,6 @@ export default function Navbar({ cartCount = 0 }) {
     navigate("/");
   };
 
-  // Sin borde fuerte: gris fino, y verde con hover o al escribir
   const searchForm = (
     <form onSubmit={handleSearch} role="search" className="relative w-full">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted-foreground" />
@@ -128,9 +123,8 @@ export default function Navbar({ cartCount = 0 }) {
 
   return (
     <>
-      {/* ───────── Barra superior ───────── */}
       <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-background/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8 xl:h-[88px]">
+        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:px-10 xl:h-[88px] 2xl:px-16">
           {/* Logo */}
           <Link to="/" className="flex shrink-0 items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary text-brand-primary-foreground xl:h-11 xl:w-11">
@@ -145,8 +139,6 @@ export default function Navbar({ cartCount = 0 }) {
               </span>
             </span>
           </Link>
-
-          {/* Links (solo desktop) */}
           <nav className="hidden items-center gap-7 xl:flex" aria-label="Principal">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink key={to} to={to} className={linkClass}>
@@ -154,15 +146,10 @@ export default function Navbar({ cartCount = 0 }) {
               </NavLink>
             ))}
           </nav>
-
-          {/* Buscador (solo desktop) */}
           <div className="ml-auto hidden max-w-[480px] flex-1 xl:block">
             {searchForm}
           </div>
-
-          {/* Acciones: en mobile solo queda el toggle */}
           <div className="ml-auto flex items-center gap-2.5 xl:ml-0">
-            {/* Sesión (solo desktop) */}
             <div className="hidden items-center gap-2.5 xl:flex">
               {loading ? (
                 <div className="h-10 w-36 animate-pulse rounded-lg bg-brand-muted" />
@@ -204,8 +191,6 @@ export default function Navbar({ cartCount = 0 }) {
                 </button>
               )}
             </div>
-
-            {/* Modo claro / oscuro (siempre visible) */}
             <button
               onClick={() => setDark((d) => !d)}
               title={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
@@ -218,8 +203,6 @@ export default function Navbar({ cartCount = 0 }) {
                 <Moon className="h-[18px] w-[18px]" />
               )}
             </button>
-
-            {/* Carrito (solo desktop) */}
             <Link
               to="/cart"
               aria-label={`Carrito, ${cartCount} productos`}
@@ -232,12 +215,8 @@ export default function Navbar({ cartCount = 0 }) {
             </Link>
           </div>
         </div>
-
-        {/* Buscador debajo del navbar (solo mobile) */}
         <div className="px-6 pb-3 sm:px-10 xl:hidden">{searchForm}</div>
       </header>
-
-      {/* ───────── Barra inferior (solo mobile) ───────── */}
       <nav
         aria-label="Navegación móvil"
         className="fixed inset-x-0 bottom-0 z-50 flex border-t border-brand-border bg-brand-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
@@ -266,8 +245,6 @@ export default function Navbar({ cartCount = 0 }) {
             Admin
           </NavLink>
         )}
-
-        {/* Mientras se recupera la sesión no se muestra nada para evitar parpadeo */}
         {!loading &&
           (user ? (
             <button onClick={handleLogout} className={bottomItem()}>
