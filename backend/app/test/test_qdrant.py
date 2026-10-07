@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("sentence_transformers")
+
 from app.core.config import settings
 from app.rag import embeddings, vector_store
 
