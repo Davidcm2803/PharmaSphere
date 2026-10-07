@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { Pencil, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ImageOff, Pencil, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import useFetch from "../../hooks/useFetch";
-import { ENDPOINTS, apiFetch } from "../../config/api";
+import { ENDPOINTS, apiFetch, assetUrl } from "../../config/api";
 import PageHeader from "../../components/admin/ui/PageHeader";
 import ActionButton from "../../components/admin/ui/ActionButton";
 import Panel from "../../components/admin/ui/Panel";
@@ -29,7 +29,35 @@ const SORT_OPTIONS = [
   { value: "recientes", label: "Más recientes" },
 ];
 
+// Miniatura de 40x40 para no romper visual
+function Thumb({ src, alt }) {
+  const [failed, setFailed] = useState(false);
+  const url = assetUrl(src);
+
+  if (!url || failed) {
+    return (
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-muted text-brand-muted-foreground">
+        <ImageOff className="h-4 w-4" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="h-10 w-10 rounded-lg border border-brand-border bg-white object-contain"
+    />
+  );
+}
+
 const columns = [
+  {
+    key: "imagen_url",
+    label: "",
+    render: (p) => <Thumb src={p.imagen_url} alt={p.nombre} />,
+  },
   { key: "nombre", label: "Producto" },
   { key: "categoria", label: "Categoría", render: (p) => p.categoria ?? "—" },
   { key: "precio", label: "Precio", render: (p) => money.format(p.precio) },
@@ -73,10 +101,12 @@ export default function Medicines() {
   const orden = params.get("orden") ?? "";
   const activeFilters = [q, categoria, receta, orden].filter(Boolean).length;
 
-  // Si la búsqueda cambia desde el Topbar, vuelve a la primera página
-  useEffect(() => {
+  // Si la busqueda cambia desde el Topbar, vuelve a la primera página
+  const [prevQ, setPrevQ] = useState(q);
+  if (q !== prevQ) {
+    setPrevQ(q);
     setPage(1);
-  }, [q]);
+  }
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);

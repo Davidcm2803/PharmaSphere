@@ -1,46 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { getProductById, getProducts } from "../services/productService";
+import { useEffect, useState } from "react";
+import {
+  getCategories,
+  getProductById,
+  getProducts,
+} from "../services/productService";
 
-export function useProducts(params) {
-  const [state, setState] = useState({ items: [], total: 0, error: null, requestId: null });
-  const [requestKey, setRequestKey] = useState(0);
-  const serializedParams = JSON.stringify(params);
-  const requestId = `${serializedParams}:${requestKey}`;
+// Ejecuta `fn` cada vez que cambia `key` y expone { data, loading, error, retry }
+function useAsync(fn, key) {
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState({ key: null, data: null, error: null });
+  const requestKey = `${key}:${attempt}`;
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      getProducts(JSON.parse(serializedParams), controller.signal)
-        .then((result) => setState({ ...result, error: null, requestId }))
-        .catch((error) => {
-          if (error.name !== "AbortError") setState((current) => ({ ...current, error: error.message, requestId }));
-        });
-    }, 180);
-
+    let cancelled = false;
+    fn()
+      .then((data) => !cancelled && setResult({ key: requestKey, data, error: null }))
+      .catch((err) => !cancelled && setResult({ key: requestKey, data: null, error: err.message }));
     return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+      cancelled = true;
     };
-  }, [serializedParams, requestKey, requestId]);
+    // fn se recrea en cada render; key identifica cuando hay que volver a pedir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey]);
 
-  const retry = useCallback(() => setRequestKey((key) => key + 1), []);
-  return { ...state, loading: state.requestId !== requestId, retry };
+  const loading = result.key !== requestKey;
+  return {
+    data: result.data,
+    loading,
+    error: loading ? null : result.error,
+    retry: () => setAttempt((n) => n + 1),
+  };
 }
 
-export function useProduct(productId) {
-  const [state, setState] = useState({ item: null, error: null, requestId: null });
-  const [requestKey, setRequestKey] = useState(0);
-  const requestId = `${productId}:${requestKey}`;
+export const useProducts = (params) =>
+  useAsync(() => getProducts(params), JSON.stringify(params));
 
-  useEffect(() => {
-    const controller = new AbortController();
-    getProductById(productId, controller.signal)
-      .then((result) => setState({ ...result, error: null, requestId }))
-      .catch((error) => {
-        if (error.name !== "AbortError") setState({ item: null, error: error.message, requestId });
-      });
-    return () => controller.abort();
-  }, [productId, requestKey, requestId]);
+export const useProduct = (id) => useAsync(() => getProductById(id), String(id));
 
-  return { ...state, loading: state.requestId !== requestId, retry: () => setRequestKey((key) => key + 1) };
-}
+export const useCategories = () => useAsync(getCategories, "categories");

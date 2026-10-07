@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { cn } from "../../../lib/utils";
 import useFetch from "../../../hooks/useFetch";
 import { ENDPOINTS, apiFetch } from "../../../config/api";
@@ -53,7 +53,7 @@ export default function ProductForm({ product }) {
   const [formError, setFormError] = useState(null);
 
   const {
-    register, handleSubmit, setError, watch, control,
+    register, handleSubmit, setError, control,
     formState: { errors, isSubmitting },
   } = useForm({ defaultValues: toDefaults(product) });
 
@@ -69,7 +69,7 @@ export default function ProductForm({ product }) {
     label: s.nombre,
   }));
   const categoryOptions = (categories.data ?? []).map((c) => ({ value: c, label: c }));
-  const imageUrl = watch("imagen_url")?.trim();
+  const imageUrl = useWatch({ control, name: "imagen_url" })?.trim();
 
   const onSubmit = async (values) => {
     setFormError(null);

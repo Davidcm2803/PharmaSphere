@@ -27,9 +27,12 @@ export default function Topbar({ onMenu, onLogout }) {
   const date = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
 
   // Si el filtro se limpia desde la página, vacía también el input
-  useEffect(() => {
-    setQuery(params.get("q") ?? "");
-  }, [params]);
+  const urlQ = params.get("q") ?? "";
+  const [prevUrlQ, setPrevUrlQ] = useState(urlQ);
+  if (urlQ !== prevUrlQ) {
+    setPrevUrlQ(urlQ);
+    setQuery(urlQ);
+  }
 
   // Lleva la busqueda a la lista de productos
   const onSearch = (e) => {
