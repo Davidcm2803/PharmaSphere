@@ -1,6 +1,13 @@
 export const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8010/api";
 
+// Base del servidor sin el prefijo /api (para servir /static/...)
+export const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+// Convierte "/static/productos/x.jpg" en URL completa; si ya es http(s) la deja igual
+export const assetUrl = (path) =>
+  !path ? null : path.startsWith("http") ? path : `${SERVER_URL}${path}`;
+
 // Siempre debe coincidir con el prefijo del backend de app /api/auth)
 export const ENDPOINTS = {
   AUTH_REGISTER: "/auth/register", // POST

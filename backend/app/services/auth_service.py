@@ -2,7 +2,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,7 @@ def create_access_token(user: Usuario) -> str:
 def decode_access_token(token: str) -> Optional[dict]:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-    except JWTError:
+    except PyJWTError:
         return None
 
 #Usuarios
