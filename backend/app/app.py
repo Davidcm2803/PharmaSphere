@@ -20,7 +20,7 @@ from app.routes import (
     ai_routes,
     suppliers_routes,
 )
-#testt rama
+#testt rama 1
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
