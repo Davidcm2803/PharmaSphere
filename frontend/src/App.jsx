@@ -2,7 +2,20 @@
 import AdminLayout from "./components/layout/AdminLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Placeholder from "./pages/admin/Placeholder";
+import Login from "./pages/Login";
+import Inventario from "./pages/admin/Inventario";
+import Sucursales from "./pages/admin/Sucursales";
+import Proveedores from "./pages/admin/Proveedores";
+import Empleados from "./pages/admin/Empleados";
 import { adminNav } from "./config/adminNav";
+
+// Pantallas reales por ruta; las que no estén aquí siguen como Placeholder
+const adminPages = {
+  inventario: Inventario,
+  sucursales: Sucursales,
+  proveedores: Proveedores,
+  empleados: Empleados,
+};
 
 function Home() {
   return (
@@ -19,14 +32,21 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Placeholder title="Login (tareas #2 y #3)" />} />
+      <Route path="/login" element={<Login />} />
 
       <Route element={<ProtectedRoute roles={["admin", "empleado"]} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          {adminNav.map(({ path, label }) => (
-            <Route key={path} path={path} element={<Placeholder title={label} />} />
-          ))}
+          {adminNav.map(({ path, label }) => {
+            const Page = adminPages[path];
+            return (
+              <Route
+                key={path}
+                path={path}
+                element={Page ? <Page /> : <Placeholder title={label} />}
+              />
+            );
+          })}
         </Route>
       </Route>
 
