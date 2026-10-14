@@ -17,8 +17,19 @@ export const ENDPOINTS = {
   AUTH_USERS: "/auth/users", // GET (solo admin)
   PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
   CATEGORIES: "/categories", // GET público
-  SUPPLIERS: "/suppliers", // GET (lista para el dropdowm de proveedor)
+  SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
   SUPPLIER_OPTIONS: "/suppliers/options",
+
+  // Sucursales -> /branches y /branches/{id}
+  BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}
+
+  // Empleados (ligados a sucursal) -> /employees y /employees/{id}
+  EMPLOYEES: "/employees", // GET, POST | PUT, DELETE en /employees/{id}
+
+  // Inventario por sucursal
+  INVENTORY: "/inventory", // GET ?id_sucursal=1&low_stock=true
+  INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
+  INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
 };
 
 const TOKEN_KEY = "pharmasphere_token";
