@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   Pill, X, LayoutGrid, Package, ChartColumn, ShoppingBag, Truck,
-  Clock, FileText, Users, ClipboardList,
+  Clock, FileText, Users, ClipboardList, Store
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import BranchSelector from "./BranchSelector";
@@ -17,6 +17,8 @@ const NAV_ITEMS = [
   { path: "proveedores", label: "Proveedores", icon: Truck },
   { path: "clientes", label: "Clientes", icon: Users },
   { path: "recetas", label: "Recetas", icon: ClipboardList },
+  { label: "Sucursales", to: "/admin/sucursales", icon: Store, roles: ["admin"] },
+  { label: "Empleados", to: "/admin/empleados", icon: Users, roles: ["admin"] },
   { path: "vencimientos", label: "Vencimientos", icon: Clock },
   { path: "reportes", label: "Reportes", icon: FileText },
 ];

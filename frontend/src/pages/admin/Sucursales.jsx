@@ -7,12 +7,12 @@ import Modal from "../../components/ui/Modal";
 import Select from "../../components/ui/Select";
 import Table from "../../components/ui/Table";
 import { ENDPOINTS, apiFetch } from "../../config/api";
-import useApi from "../../hooks/useApi";
+import useFetch from "../../hooks/useFetch";
 
 const EMPTY_FORM = { nombre: "", direccion: "", telefono: "", activo: "true" };
 
 export default function Sucursales() {
-  const { data, error, loading, refetch } = useApi(ENDPOINTS.BRANCHES);
+  const { data, error, loading, refetch } = useFetch(ENDPOINTS.BRANCHES);
   const branches = Array.isArray(data) ? data : (data?.items ?? []);
 
   const [formOpen, setFormOpen] = useState(false);

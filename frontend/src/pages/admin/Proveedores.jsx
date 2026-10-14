@@ -7,7 +7,7 @@ import Modal from "../../components/ui/Modal";
 import Select from "../../components/ui/Select";
 import Table from "../../components/ui/Table";
 import { ENDPOINTS, apiFetch } from "../../config/api";
-import useApi from "../../hooks/useApi";
+import useFetch from "../../hooks/useFetch";
 
 const EMPTY_FORM = {
   nombre: "",
@@ -18,7 +18,7 @@ const EMPTY_FORM = {
 };
 
 export default function Proveedores() {
-  const { data, error, loading, refetch } = useApi(ENDPOINTS.SUPPLIERS);
+  const { data, error, loading, refetch } = useFetch(ENDPOINTS.SUPPLIERS);
   const suppliers = Array.isArray(data) ? data : (data?.items ?? []);
 
   const [formOpen, setFormOpen] = useState(false);

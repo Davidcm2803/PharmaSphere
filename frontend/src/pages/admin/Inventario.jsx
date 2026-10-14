@@ -7,7 +7,7 @@ import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Table from "../../components/ui/Table";
 import { ENDPOINTS } from "../../config/api";
-import useApi from "../../hooks/useApi";
+import useFetch from "../../hooks/useFetch";
 
 const toList = (data) => (Array.isArray(data) ? data : (data?.items ?? []));
 
@@ -23,7 +23,7 @@ const normalize = (r) => ({
 });
 
 export default function Inventario() {
-  const { data: branchesData, error: branchesError } = useApi(
+  const { data: branchesData, error: branchesError } = useFetch(
     ENDPOINTS.BRANCHES,
   );
   const activeBranches = toList(branchesData).filter((b) => b.activo);
@@ -39,7 +39,7 @@ export default function Inventario() {
   const query = branchId
     ? `${ENDPOINTS.INVENTORY}?id_sucursal=${branchId}${onlyLow ? "&low_stock=true" : ""}`
     : null;
-  const { data, error, loading, refetch } = useApi(query);
+  const { data, error, loading, refetch } = useFetch(query);
 
   const allRows = toList(data).map(normalize);
   const lowCount = allRows.filter((r) => r.stock_bajo).length;

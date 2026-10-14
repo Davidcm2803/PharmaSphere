@@ -7,15 +7,15 @@ import Modal from "../../components/ui/Modal";
 import Select from "../../components/ui/Select";
 import Table from "../../components/ui/Table";
 import { ENDPOINTS, apiFetch } from "../../config/api";
-import useApi from "../../hooks/useApi";
+import useFetch from "../../hooks/useFetch";
 
 const EMPTY_FORM = { nombre: "", puesto: "", id_sucursal: "", activo: "true" };
 
 const toList = (data) => (Array.isArray(data) ? data : (data?.items ?? []));
 
 export default function Empleados() {
-  const { data, error, loading, refetch } = useApi(ENDPOINTS.EMPLOYEES);
-  const { data: branchesData } = useApi(ENDPOINTS.BRANCHES);
+  const { data, error, loading, refetch } = useFetch(ENDPOINTS.EMPLOYEES);
+  const { data: branchesData } = useFetch(ENDPOINTS.BRANCHES);
 
   const employees = toList(data);
   const branches = toList(branchesData);
