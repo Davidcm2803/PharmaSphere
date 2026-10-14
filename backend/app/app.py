@@ -9,15 +9,16 @@ from app.db.session import engine
 from app.middlewares.auth_middleware import AuthMiddleware
 from app.middlewares.error_handler import register_exception_handlers
 from app.routes import (
-    auth_routes,
-    products_routes,
-    inventory_routes,
-    sales_routes,
-    purchase_routes,
-    suppliers_routes,
-    customers_routes,
-    reports_routes,
     ai_routes,
+    auth_routes,
+    branches_routes,
+    customers_routes,
+    employees_routes,
+    inventory_routes,
+    products_routes,
+    purchase_routes,
+    reports_routes,
+    sales_routes,
     suppliers_routes,
 )
 
@@ -45,6 +46,8 @@ app.add_middleware(
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(products_routes.router, prefix="/api/products", tags=["products"])
 app.include_router(products_routes.categories_router, prefix="/api/categories", tags=["products"])
+app.include_router(branches_routes.router, prefix="/api/branches", tags=["branches"])
+app.include_router(employees_routes.router, prefix="/api/employees", tags=["employees"])
 app.include_router(inventory_routes.router, prefix="/api/inventory", tags=["inventory"])
 app.include_router(sales_routes.router, prefix="/api/sales", tags=["sales"])
 app.include_router(purchase_routes.router, prefix="/api/purchases", tags=["purchases"])

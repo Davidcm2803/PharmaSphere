@@ -1,10 +1,10 @@
 import { useState } from "react";
-import Alert from "../ui/Alert";
-import Button from "../ui/Button";
-import Input from "../ui/Input";
-import Modal from "../ui/Modal";
-import Select from "../ui/Select";
-import { ENDPOINTS, apiFetch } from "../../config/api";
+import Alert from "../../ui/Alert";
+import Button from "../../ui/Button";
+import Input from "../../ui/Input";
+import Modal from "../../ui/Modal";
+import Select from "../../ui/Select";
+import { ENDPOINTS, apiFetch } from "../../../config/api";
 
 // `item` = { id_producto, nombre, cantidad }; `branches` = sucursales activas
 export default function TransferirStockModal({

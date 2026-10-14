@@ -1,17 +1,33 @@
 import { useState } from "react";
+import { Pencil, PowerOff, Search, UserCog } from "lucide-react";
+import useFetch from "../../hooks/useFetch";
+import { ENDPOINTS, apiFetch } from "../../config/api";
+import PageHeader from "../../components/admin/ui/PageHeader";
+import ActionButton from "../../components/admin/ui/ActionButton";
+import Panel from "../../components/admin/ui/Panel";
+import StatCard from "../../components/admin/ui/StatCard";
+import DataTable from "../../components/admin/ui/DataTable";
+import Pagination from "../../components/admin/ui/Pagination";
+import Notice from "../../components/admin/ui/Notice";
+import ConfirmDialog from "../../components/admin/ui/ConfirmDialog";
 import Alert from "../../components/ui/Alert";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
 import Select from "../../components/ui/Select";
-import Table from "../../components/ui/Table";
-import { ENDPOINTS, apiFetch } from "../../config/api";
-import useFetch from "../../hooks/useFetch";
+
+const PAGE_SIZE = 10;
 
 const EMPTY_FORM = { nombre: "", puesto: "", id_sucursal: "", activo: "true" };
 
 const toList = (data) => (Array.isArray(data) ? data : (data?.items ?? []));
+
+const iconAction =
+  "flex h-9 w-9 items-center justify-center rounded-lg text-brand-muted-foreground transition-colors hover:bg-brand-muted hover:text-brand-foreground";
+
+const selectClass =
+  "h-10 w-full rounded-lg border border-brand-border bg-brand-card px-3 text-sm text-brand-foreground focus:border-brand-primary focus:outline-none sm:w-auto sm:min-w-[160px]";
 
 export default function Empleados() {
   const { data, error, loading, refetch } = useFetch(ENDPOINTS.EMPLOYEES);
@@ -27,17 +43,48 @@ export default function Empleados() {
   const branchLabel = (emp) =>
     emp.sucursal_nombre ?? branchNames[emp.id_sucursal] ?? "—";
 
+  // Filtros y paginación (en el cliente)
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("todos");
+  const [branchFilter, setBranchFilter] = useState("");
+  const [page, setPage] = useState(1);
+
+  const activeCount = employees.filter((e) => e.activo).length;
+
+  const term = search.trim().toLowerCase();
+  const rows = employees
+    .filter(
+      (e) => status === "todos" || (status === "activos") === Boolean(e.activo),
+    )
+    .filter(
+      (e) => !branchFilter || String(e.id_sucursal) === branchFilter,
+    )
+    .filter(
+      (e) =>
+        !term ||
+        [e.nombre, e.puesto].some((v) => v?.toLowerCase().includes(term)),
+    );
+
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pages);
+  const pageRows = rows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const hasFilters = Boolean(term) || status !== "todos" || Boolean(branchFilter);
+
+  // Formulario crear / editar
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null = creando
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Desactivar
   const [toDeactivate, setToDeactivate] = useState(null);
   const [deactivating, setDeactivating] = useState(false);
 
-  const [message, setMessage] = useState("");
-  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState(null);
 
   const setField = (key) => (e) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -90,10 +137,10 @@ export default function Empleados() {
           method: "PUT",
           body,
         });
-        setMessage("Empleado actualizado correctamente.");
+        setNotice({ type: "success", text: "Empleado actualizado correctamente." });
       } else {
         await apiFetch(ENDPOINTS.EMPLOYEES, { method: "POST", body });
-        setMessage("Empleado creado correctamente.");
+        setNotice({ type: "success", text: "Empleado creado correctamente." });
       }
       setFormOpen(false);
       refetch();
@@ -106,73 +153,190 @@ export default function Empleados() {
 
   const handleDeactivate = async () => {
     setDeactivating(true);
-    setActionError("");
     try {
       await apiFetch(`${ENDPOINTS.EMPLOYEES}/${toDeactivate.id_empleado}`, {
         method: "DELETE",
       });
-      setMessage("Empleado desactivado.");
-      setToDeactivate(null);
+      setNotice({ type: "success", text: `"${toDeactivate.nombre}" se desactivó.` });
       refetch();
     } catch (err) {
-      setMessage("");
-      setToDeactivate(null);
-      setActionError(err.message);
+      setNotice({ type: "error", text: err.message });
     } finally {
       setDeactivating(false);
+      setToDeactivate(null);
     }
   };
 
   const columns = [
-    { key: "nombre", header: "Nombre" },
-    { key: "puesto", header: "Puesto", render: (r) => r.puesto || "—" },
-    { key: "sucursal", header: "Sucursal", render: (r) => branchLabel(r) },
+    { key: "nombre", label: "Nombre" },
+    { key: "puesto", label: "Puesto", render: (r) => r.puesto || "—" },
+    { key: "sucursal", label: "Sucursal", render: (r) => branchLabel(r) },
     {
       key: "activo",
-      header: "Estado",
+      label: "Estado",
       render: (r) => (
         <Badge variant={r.activo ? "success" : "neutral"}>
           {r.activo ? "Activo" : "Inactivo"}
         </Badge>
       ),
     },
-    {
-      key: "acciones",
-      header: "Acciones",
-      render: (r) => (
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openEdit(r)}>
-            Editar
-          </Button>
-          {r.activo && (
-            <Button variant="danger" onClick={() => setToDeactivate(r)}>
-              Desactivar
-            </Button>
-          )}
-        </div>
-      ),
-    },
   ];
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Empleados</h1>
-        <Button onClick={openCreate}>Nuevo empleado</Button>
-      </div>
+  const renderActions = (r) => (
+    <>
+      <button
+        onClick={() => openEdit(r)}
+        className={iconAction}
+        aria-label={`Editar ${r.nombre}`}
+        title="Editar"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      {r.activo && (
+        <button
+          onClick={() => setToDeactivate(r)}
+          className={`${iconAction} hover:!text-brand-danger`}
+          aria-label={`Desactivar ${r.nombre}`}
+          title="Desactivar"
+        >
+          <PowerOff className="h-4 w-4" />
+        </button>
+      )}
+    </>
+  );
 
-      {message && <Alert type="success">{message}</Alert>}
-      {(error || actionError) && (
-        <Alert type="error">{error || actionError}</Alert>
+  return (
+    <>
+      <PageHeader
+        eyebrow="Administración"
+        title="Empleados"
+        subtitle="Gestiona el equipo de trabajo de cada sucursal."
+        actions={
+          <div className="flex w-full sm:w-auto">
+            <ActionButton variant="primary" onClick={openCreate}>
+              + Nuevo empleado
+            </ActionButton>
+          </div>
+        }
+      />
+
+      {notice && (
+        <Notice
+          type={notice.type}
+          onClose={() => setNotice(null)}
+          className="mt-6"
+        >
+          {notice.text}
+        </Notice>
       )}
 
-      <Table
-        columns={columns}
-        rows={employees}
-        rowKey="id_empleado"
-        loading={loading}
-        emptyMessage="No hay empleados registrados"
-      />
+      <Panel
+        icon={UserCog}
+        title="Espacio de empleados"
+        subtitle="Resumen operativo de tu equipo."
+      >
+        <div className="mb-6 grid gap-3 sm:gap-4 md:grid-cols-3">
+          <StatCard
+            label="Empleados"
+            value={loading ? "—" : `${employees.length} registrados`}
+          />
+          <StatCard
+            label="Activos"
+            value={loading ? "—" : `${activeCount} activos`}
+          />
+          <StatCard
+            label="Inactivos"
+            value={loading ? "—" : `${employees.length - activeCount} inactivos`}
+          />
+        </div>
+
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-border bg-brand-background p-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-brand-muted-foreground sm:min-w-[220px]">
+            Buscar empleado
+            <span className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted-foreground" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Nombre o puesto..."
+                className="h-10 w-full rounded-lg border border-brand-border bg-brand-card pl-9 pr-3 text-sm text-brand-foreground placeholder:text-brand-muted-foreground focus:border-brand-primary focus:outline-none"
+              />
+            </span>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-medium text-brand-muted-foreground">
+            Sucursal
+            <select
+              value={branchFilter}
+              onChange={(e) => {
+                setBranchFilter(e.target.value);
+                setPage(1);
+              }}
+              className={selectClass}
+            >
+              <option value="">Todas</option>
+              {branches.map((b) => (
+                <option key={b.id_sucursal} value={b.id_sucursal}>
+                  {b.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-medium text-brand-muted-foreground">
+            Estado
+            <select
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+              className={selectClass}
+            >
+              <option value="todos">Todos</option>
+              <option value="activos">Activos</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+          </label>
+        </div>
+
+        {error ? (
+          <Notice type="error">
+            No se pudieron cargar los empleados: {error}
+            <button onClick={refetch} className="ml-2 font-semibold underline">
+              Reintentar
+            </button>
+          </Notice>
+        ) : loading ? (
+          <p className="py-10 text-center text-brand-muted-foreground">
+            Cargando empleados…
+          </p>
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              rows={pageRows}
+              rowKey="id_empleado"
+              renderActions={renderActions}
+              empty={
+                hasFilters
+                  ? "No hay empleados que coincidan con los filtros."
+                  : "Aún no hay empleados. Usa “+ Nuevo empleado” para crear el primero."
+              }
+            />
+            <Pagination
+              page={currentPage}
+              pages={pages}
+              total={rows.length}
+              onChange={setPage}
+            />
+          </>
+        )}
+      </Panel>
 
       {/* Crear / editar */}
       <Modal
@@ -235,30 +399,16 @@ export default function Empleados() {
         </form>
       </Modal>
 
-      {/* Confirmar desactivación */}
-      <Modal
-        open={Boolean(toDeactivate)}
-        onClose={() => setToDeactivate(null)}
-        title="Desactivar empleado"
-      >
-        <p className="mb-4 text-sm text-brand-foreground">
-          ¿Seguro que quieres desactivar a{" "}
-          <strong>{toDeactivate?.nombre}</strong>? Podrás reactivarlo
-          editándolo.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setToDeactivate(null)}>
-            Cancelar
-          </Button>
-          <Button
-            variant="danger"
-            loading={deactivating}
-            onClick={handleDeactivate}
-          >
-            Desactivar
-          </Button>
-        </div>
-      </Modal>
-    </div>
+      {toDeactivate && (
+        <ConfirmDialog
+          title="¿Desactivar empleado?"
+          message={`“${toDeactivate.nombre}” quedará inactivo. Podrás reactivarlo editándolo.`}
+          confirmLabel="Desactivar"
+          loading={deactivating}
+          onConfirm={handleDeactivate}
+          onCancel={() => setToDeactivate(null)}
+        />
+      )}
+    </>
   );
 }

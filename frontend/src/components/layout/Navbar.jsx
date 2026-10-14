@@ -82,7 +82,7 @@ export default function Navbar({ cartCount = 0 }) {
     try {
       localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
     } catch {
-      //localStorega no dosponible
+      // localStorage no disponible: el tema solo vive en esta sesión
     }
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
