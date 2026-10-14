@@ -82,6 +82,7 @@ export default function Navbar({ cartCount = 0 }) {
     try {
       localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
     } catch {
+      //localStorega no dosponible
     }
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
@@ -139,7 +140,10 @@ export default function Navbar({ cartCount = 0 }) {
               </span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-7 xl:flex" aria-label="Principal">
+          <nav
+            className="hidden items-center gap-7 xl:flex"
+            aria-label="Principal"
+          >
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink key={to} to={to} className={linkClass}>
                 {label}
@@ -194,7 +198,9 @@ export default function Navbar({ cartCount = 0 }) {
             <button
               onClick={() => setDark((d) => !d)}
               title={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-              aria-label={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              aria-label={
+                dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"
+              }
               className={cn(outlineBtn, "h-10 w-10 shrink-0")}
             >
               {dark ? (
@@ -240,7 +246,10 @@ export default function Navbar({ cartCount = 0 }) {
 
         {/* Solo aparece para admin y empleado */}
         {user && isStaff && (
-          <NavLink to="/admin" className={({ isActive }) => bottomItem(isActive)}>
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => bottomItem(isActive)}
+          >
             <LayoutDashboard className="h-5 w-5" />
             Admin
           </NavLink>
