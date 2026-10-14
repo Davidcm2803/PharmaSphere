@@ -1,53 +1,32 @@
-﻿import { Link, Navigate, Route, Routes } from "react-router-dom";
-import AdminLayout from "./components/layout/AdminLayout";
+﻿import { Navigate, Route, Routes } from "react-router-dom";
+import PublicLayout from "./components/public/PublicLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import Placeholder from "./pages/admin/Placeholder";
-import Login from "./pages/Login";
-import Inventario from "./pages/admin/Inventario";
-import Sucursales from "./pages/admin/Sucursales";
-import Proveedores from "./pages/admin/Proveedores";
-import Empleados from "./pages/admin/Empleados";
-import { adminNav } from "./config/adminNav";
+import AdminRoutes from "./pages/Admin/AdminRoutes";
+import Home from "./pages/Public/home";
+import ShopPage from "./pages/Public/ShopPage";
+import ProductDetailPage from "./pages/Public/ProductDetailPage";
+import CategoriesPage from "./pages/Public/CategoriesPage";
+import WellnessPage from "./pages/Public/WellnessPage";
+import AboutPage from "./pages/Public/AboutPage";
 
-// Pantallas reales por ruta; las que no estén aquí siguen como Placeholder
-const adminPages = {
-  inventario: Inventario,
-  sucursales: Sucursales,
-  proveedores: Proveedores,
-  empleados: Empleados,
-};
-
-function Home() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Inicio</h1>
-      <Link to="/admin" className="text-brand-primary underline">
-        Ir al panel de administración
-      </Link>
-    </div>
-  );
-}
+// BrowserRouter y AuthProvider viven en main.jsx
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
+      {/* Sitio publico, Navbar + Footer los pone PublicLayout */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/shop" element={<ShopPage />} />
+        <Route path="/shop/:id" element={<ProductDetailPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/wellness" element={<WellnessPage />} />
+        <Route path="/about" element={<AboutPage />} />
+      </Route>
 
+      {/* Admin: solo admin y empleado. Para algo solo de admin: roles={["admin"]} */}
       <Route element={<ProtectedRoute roles={["admin", "empleado"]} />}>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          {adminNav.map(({ path, label }) => {
-            const Page = adminPages[path];
-            return (
-              <Route
-                key={path}
-                path={path}
-                element={Page ? <Page /> : <Placeholder title={label} />}
-              />
-            );
-          })}
-        </Route>
+        <Route path="/admin/*" element={<AdminRoutes />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

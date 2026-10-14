@@ -35,6 +35,32 @@ El sistema tiene dos frentes:
 - Docker y Docker Compose
 - Servicios separados: base de datos, motor vectorial y backend, cada uno en su propio contenedor
 
+  
+## Modelo de embeddings
+
+Modelo elegido: `intfloat/multilingual-e5-small` (384 dimensiones, corre en CPU).
+
+Se comparó con 10 preguntas en español sobre 10 documentos de farmacia
+(`docker compose exec backend python -m app.test.compare_embeddings`):
+
+| Modelo | Dim | Top-1 | Top-3 | Embedding |
+|---|---|---|---|---|
+| paraphrase-multilingual-MiniLM-L12-v2 | 384 | 6/10 | 9/10 | 0.43 s |
+| multilingual-e5-small | 384 | 8/10 | 10/10 | 0.34 s |
+| multilingual-e5-base | 768 | 8/10 | 10/10 | 0.95 s |
+
+Por qué se eligió e5-small:
+- Más precisión que MiniLM en búsquedas en español.
+- Misma precisión que e5-base con la mitad de dimensiones, menos espacio en Qdrant y más velocidad.
+- Pesa 471 MB frente a 1.11 GB de e5-base.
+- Acepta textos de hasta 512 tokens (MiniLM solo 128), lo que da más libertad al dividir documentos.
+
+Notas:
+- Los modelos e5 necesitan los prefijos `query:` y `passage:`. Lo maneja `app/rag/embeddings.py`.
+- El modelo se cambia con la variable `EMBEDDING_MODEL` en `backend/.env`. Si la nueva dimensión es distinta, hay que recrear las colecciones de Qdrant.
+- Los modelos se guardan en el volumen `pharmasphere_hf_cache`, así que solo se descargan una vez.
+- Prueba de conexión a Qdrant: `docker compose exec backend python -m app.test.test_qdrant`.
+
 ## Estructura del proyecto
 
 ```

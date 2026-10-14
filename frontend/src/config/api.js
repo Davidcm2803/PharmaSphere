@@ -1,18 +1,27 @@
 export const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8010/api";
 
-// Deben coincidir con backend/app/routes/auth_routes.py (prefijo /api/auth)
+// Base del servidor sin el prefijo /api (para servir /static/...)
+export const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+// Convierte "/static/productos/x.jpg" en URL completa; si ya es http(s) la deja igual
+export const assetUrl = (path) =>
+  !path ? null : path.startsWith("http") ? path : `${SERVER_URL}${path}`;
+
+// Siempre debe coincidir con el prefijo del backend de app /api/auth)
 export const ENDPOINTS = {
   AUTH_REGISTER: "/auth/register", // POST
   AUTH_LOGIN: "/auth/login", // POST
+  AUTH_FIREBASE: "/auth/firebase", // POST { id_token, nombre? }
   AUTH_ME: "/auth/me", // GET (requiere token)
   AUTH_USERS: "/auth/users", // GET (solo admin)
+  PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
+  CATEGORIES: "/categories", // GET público
+  SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
+  SUPPLIER_OPTIONS: "/suppliers/options",
 
-  // Sucursales (tarea #7) -> /branches y /branches/{id}
+  // Sucursales -> /branches y /branches/{id}
   BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}
-
-  // Proveedores -> /suppliers y /suppliers/{id}
-  SUPPLIERS: "/suppliers", // GET, POST | PUT, DELETE en /suppliers/{id}
 
   // Empleados (ligados a sucursal) -> /employees y /employees/{id}
   EMPLOYEES: "/employees", // GET, POST | PUT, DELETE en /employees/{id}

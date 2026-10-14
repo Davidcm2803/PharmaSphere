@@ -1,6 +1,6 @@
 import os
 
-# Variables mínimas para que Settings cargue aunque no exista .env (van ANTES de importar la app)
+#Variables minimas para que Settings cargue aunque no exista .env (van ANTES de importar la app)
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "clave-solo-para-tests")
 
@@ -14,10 +14,9 @@ from app.app import app
 from app.db.base import Base
 from app.db.session import get_db
 from app.models.user_model import Usuario
-from app.schemas.user_schema import UserRegister
-from app.services import auth_service
+from app.services import auth_service, firebase_service
 
-# Base de datos SQLite en memoria: los tests NO tocan tu Postgres
+#Base de datos SQLite en memoria: los tests NO tocan tu Postgres
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
@@ -58,19 +57,41 @@ def registrar_y_loguear(client, datos=CLIENTE):
     )
     return resp
 
-
+#Los admin no se registran por la API: se crean directo en la BD
 def crear_admin():
-    """Los admin no se registran por la API: se crean directo en la BD."""
     db = TestingSessionLocal()
     auth_service.create_user(
         db,
-        UserRegister(nombre="Admin", correo="admin@mail.com", password="admin12345"),
+        nombre="Admin",
+        correo="admin@mail.com",
+        password="admin12345",
         rol="admin",
     )
     db.close()
 
 
-# ---------- Registro y login ----------
+def token_admin(client):
+    crear_admin()
+    resp = client.post(
+        "/api/auth/login",
+        json={"correo": "admin@mail.com", "password": "admin12345"},
+    )
+    return resp.json()["access_token"]
+
+
+def auth_header(token):
+    return {"Authorization": f"Bearer {token}"}
+
+#Simula que Firebase acepta el token y devuelve estos claims
+def fake_firebase(monkeypatch, claims):
+    monkeypatch.setattr(
+        firebase_service, "verify_firebase_token", lambda id_token: claims
+    )
+
+
+FIREBASE_BODY = {"id_token": "token-de-prueba-123"}
+
+#Registro y login
 def test_registro_de_cliente(client):
     resp = client.post("/api/auth/register", json=CLIENTE)
     assert resp.status_code == 201
@@ -79,10 +100,23 @@ def test_registro_de_cliente(client):
     assert "password" not in body and "password_hash" not in body
 
 
+def test_registro_crea_registro_de_cliente(client):
+    resp = client.post("/api/auth/register", json=CLIENTE)
+    assert resp.json()["id_cliente"] is not None
+
+
 def test_registro_ignora_rol_enviado(client):
     resp = client.post("/api/auth/register", json={**CLIENTE, "rol": "admin"})
     assert resp.status_code == 201
     assert resp.json()["rol"] == "cliente"
+
+
+def test_registro_ignora_firebase_uid_enviado(client):
+    client.post("/api/auth/register", json={**CLIENTE, "firebase_uid": "uid-ajeno"})
+    db = TestingSessionLocal()
+    user = auth_service.get_user_by_email(db, CLIENTE["correo"])
+    assert user.firebase_uid is None
+    db.close()
 
 
 def test_registro_correo_duplicado(client):
@@ -105,7 +139,7 @@ def test_login_incorrecto(client):
     client.post("/api/auth/register", json=CLIENTE)
     resp = client.post(
         "/api/auth/login",
-        json={"correo": CLIENTE["correo"], "password": "contraseña-mala"},
+        json={"correo": CLIENTE["correo"], "password": "clave-mala"},
     )
     assert resp.status_code == 401
     assert resp.json()["success"] is False
@@ -118,21 +152,20 @@ def test_login_usuario_inexistente(client):
     )
     assert resp.status_code == 401
 
-
-# ---------- Rutas protegidas ----------
+#Rutas protegidas
 def test_me_sin_token_devuelve_401(client):
     resp = client.get("/api/auth/me")
     assert resp.status_code == 401
 
 
 def test_me_con_token_invalido_devuelve_401(client):
-    resp = client.get("/api/auth/me", headers={"Authorization": "Bearer token-falso"})
+    resp = client.get("/api/auth/me", headers=auth_header("token-falso"))
     assert resp.status_code == 401
 
 
 def test_me_con_token_valido(client):
     token = registrar_y_loguear(client).json()["access_token"]
-    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/auth/me", headers=auth_header(token))
     assert resp.status_code == 200
     assert resp.json()["correo"] == CLIENTE["correo"]
 
@@ -144,23 +177,141 @@ def test_ruta_admin_sin_token_devuelve_401(client):
 
 def test_ruta_admin_con_cliente_devuelve_403(client):
     token = registrar_y_loguear(client).json()["access_token"]
-    resp = client.get("/api/auth/users", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/auth/users", headers=auth_header(token))
     assert resp.status_code == 403
 
 
 def test_ruta_admin_con_admin_devuelve_200(client):
-    crear_admin()
-    resp = client.post(
-        "/api/auth/login",
-        json={"correo": "admin@mail.com", "password": "admin12345"},
-    )
-    token = resp.json()["access_token"]
-    resp = client.get("/api/auth/users", headers={"Authorization": f"Bearer {token}"})
+    token = token_admin(client)
+    resp = client.get("/api/auth/users", headers=auth_header(token))
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
 
+#Invitacion de usuarios por el admin
+INVITADO = {"nombre": "Maria Empleada", "correo": "maria@mail.com", "rol": "empleado"}
 
-# ---------- Formato uniforme de errores ----------
+
+def test_admin_invita_usuario(client):
+    token = token_admin(client)
+    resp = client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+    assert resp.status_code == 201
+    assert resp.json()["rol"] == "empleado"
+    assert resp.json()["correo"] == INVITADO["correo"]
+
+
+def test_invitar_correo_duplicado_devuelve_409(client):
+    token = token_admin(client)
+    client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+    resp = client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+    assert resp.status_code == 409
+
+
+def test_invitar_sin_token_devuelve_401(client):
+    resp = client.post("/api/auth/users", json=INVITADO)
+    assert resp.status_code == 401
+
+
+def test_invitar_con_cliente_devuelve_403(client):
+    token = registrar_y_loguear(client).json()["access_token"]
+    resp = client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+    assert resp.status_code == 403
+
+
+def test_invitado_no_entra_con_login_local(client):
+    token = token_admin(client)
+    client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+    resp = client.post(
+        "/api/auth/login",
+        json={"correo": INVITADO["correo"], "password": "cualquier-clave"},
+    )
+    assert resp.status_code == 401
+
+#Login con Firebase
+def test_firebase_token_invalido_devuelve_401(client, monkeypatch):
+    def rechazar(id_token):
+        raise firebase_service.InvalidFirebaseToken("token malo")
+
+    monkeypatch.setattr(firebase_service, "verify_firebase_token", rechazar)
+    resp = client.post("/api/auth/firebase", json=FIREBASE_BODY)
+    assert resp.status_code == 401
+
+
+def test_firebase_crea_cliente_nuevo(client, monkeypatch):
+    fake_firebase(
+        monkeypatch,
+        {"uid": "uid-1", "email": "nuevo@mail.com", "email_verified": True, "name": "Nuevo Usuario"},
+    )
+    resp = client.post("/api/auth/firebase", json=FIREBASE_BODY)
+    assert resp.status_code == 200
+    user = resp.json()["user"]
+    assert user["rol"] == "cliente"
+    assert user["id_cliente"] is not None
+    assert resp.json()["access_token"]
+
+
+def test_firebase_segundo_ingreso_reutiliza_usuario(client, monkeypatch):
+    fake_firebase(
+        monkeypatch,
+        {"uid": "uid-1", "email": "nuevo@mail.com", "email_verified": True, "name": "Nuevo Usuario"},
+    )
+    primero = client.post("/api/auth/firebase", json=FIREBASE_BODY).json()["user"]
+    segundo = client.post("/api/auth/firebase", json=FIREBASE_BODY).json()["user"]
+    assert primero["id_usuario"] == segundo["id_usuario"]
+
+
+def test_firebase_vincula_usuario_invitado(client, monkeypatch):
+    token = token_admin(client)
+    client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+
+    fake_firebase(
+        monkeypatch,
+        {"uid": "uid-maria", "email": INVITADO["correo"], "email_verified": True},
+    )
+    resp = client.post("/api/auth/firebase", json=FIREBASE_BODY)
+    assert resp.status_code == 200
+    assert resp.json()["user"]["rol"] == "empleado"
+
+    db = TestingSessionLocal()
+    user = auth_service.get_user_by_email(db, INVITADO["correo"])
+    assert user.firebase_uid == "uid-maria"
+    db.close()
+
+
+def test_firebase_correo_no_verificado_no_vincula(client, monkeypatch):
+    token = token_admin(client)
+    client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+
+    fake_firebase(
+        monkeypatch,
+        {"uid": "uid-impostor", "email": INVITADO["correo"], "email_verified": False},
+    )
+    resp = client.post("/api/auth/firebase", json=FIREBASE_BODY)
+    assert resp.status_code == 409
+
+    db = TestingSessionLocal()
+    user = auth_service.get_user_by_email(db, INVITADO["correo"])
+    assert user.firebase_uid is None
+    db.close()
+
+
+def test_firebase_usuario_inactivo_devuelve_403(client, monkeypatch):
+    token = token_admin(client)
+    client.post("/api/auth/users", json=INVITADO, headers=auth_header(token))
+
+    db = TestingSessionLocal()
+    user = auth_service.get_user_by_email(db, INVITADO["correo"])
+    user.activo = False
+    db.commit()
+    db.close()
+
+    fake_firebase(
+        monkeypatch,
+        {"uid": "uid-maria", "email": INVITADO["correo"], "email_verified": True},
+    )
+    resp = client.post("/api/auth/firebase", json=FIREBASE_BODY)
+    assert resp.status_code == 403
+
+#Formato uniforme de errores
 def test_error_de_validacion_tiene_formato_uniforme(client):
     resp = client.post("/api/auth/register", json={"correo": "no-es-correo"})
     assert resp.status_code == 422
