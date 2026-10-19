@@ -307,7 +307,11 @@ def test_chat_sin_herramientas_devuelve_respuesta_sin_fuentes(client, monkeypatc
     _llm_falso(monkeypatch, [_texto("Hola, ¿en qué te ayudo?")])
     r = _chat(client, _h_admin(client))
     assert r.status_code == 200
-    assert r.json() == {"respuesta": "Hola, ¿en qué te ayudo?", "fuentes": []}
+    assert r.json() == {
+        "respuesta": "Hola, ¿en qué te ayudo?",
+        "fuentes": [],
+        "accion": None,
+    }
 
 
 def test_chat_consulta_stock_con_datos_reales_y_sin_costo(client, monkeypatch):
