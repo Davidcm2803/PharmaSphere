@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const Recognition =
-  typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+  typeof window !== "undefined"
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null;
 const synth =
-  typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
+  typeof window !== "undefined" && "speechSynthesis" in window
+    ? window.speechSynthesis
+    : null;
 const LANG = "es-CR";
 const SILENCE_MS = 2500; // pausa tras la cual se envía lo dicho
 const FIRST_WORD_MS = 8000; // si nunca empiezas a hablar, se apaga sola
@@ -24,10 +28,6 @@ const pickVoice = () => {
     voices.find((v) => v.lang.toLowerCase().startsWith("es"))
   );
 };
-
-const heard = finalText + partial;
-setInterim(heard);
-if (heard.trim()) armTimer(SILENCE_MS);
 
 // Voz del navegador (gratis):
 // SpeechRecognition y respuestas con speechSynthesis
@@ -68,8 +68,6 @@ export default function useVoice({ onResult }) {
     rec.maxAlternatives = 1;
     let finalText = "";
     let timer = null;
-
-    // cada vez que hablas se reinicia; si pasa el tiempo en silencio, se envía
     const armTimer = (ms) => {
       clearTimeout(timer);
       timer = setTimeout(() => rec.stop(), ms);
@@ -87,8 +85,9 @@ export default function useVoice({ onResult }) {
         if (r.isFinal) finalText += r[0].transcript;
         else partial += r[0].transcript;
       }
-      setInterim(finalText + partial);
-      armTimer(SILENCE_MS);
+      const heard = finalText + partial;
+      setInterim(heard);
+      if (heard.trim()) armTimer(SILENCE_MS);
     };
     rec.onerror = (e) => {
       if (e.error !== "no-speech" && e.error !== "aborted") {
