@@ -89,7 +89,7 @@ export default function CopilotPanel({
 
       {voice.supported.listen && canSpeak && (
         <div className="flex items-center justify-between gap-2 border-b border-brand-border px-4 py-1.5 text-xs text-brand-muted-foreground">
-          <span>Manos libres: Javier vuelve a escuchar tras responder (usa auriculares).</span>
+          <span>Manos libres (se recomienda audifonos).</span>
           <button
             onClick={onToggleHandsFree}
             aria-pressed={handsFree}

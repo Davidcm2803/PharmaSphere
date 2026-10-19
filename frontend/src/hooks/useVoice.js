@@ -5,6 +5,8 @@ const Recognition =
 const synth =
   typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
 const LANG = "es-CR";
+const SILENCE_MS = 2500; // pausa tras la cual se envía lo dicho
+const FIRST_WORD_MS = 8000; // si nunca empiezas a hablar, se apaga sola
 
 const MIC_DENIED = "Permiso de micrófono denegado. Actívalo en el navegador.";
 const MIC_ERRORS = {
@@ -23,8 +25,15 @@ const pickVoice = () => {
   );
 };
 
-// Voz del navegador (gratis): dictado con SpeechRecognition y respuestas con speechSynthesis.
-// Un toque en el microfono = una frase (push-to-talk). onResult recibe el texto final.
+const heard = finalText + partial;
+setInterim(heard);
+if (heard.trim()) armTimer(SILENCE_MS);
+
+// Voz del navegador (gratis):
+// SpeechRecognition y respuestas con speechSynthesis
+// un toque en el microfono empieza tiene pausas para que no corte, igual se debe testear
+// se envía tras SILENCE_MS de silencio o al pulsarlo de nuevo
+// onResult recibe el texto final
 export default function useVoice({ onResult }) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
@@ -55,13 +64,21 @@ export default function useVoice({ onResult }) {
     const rec = new Recognition();
     rec.lang = LANG;
     rec.interimResults = true;
-    rec.continuous = false;
+    rec.continuous = true; // no corta en la primera pausa
     rec.maxAlternatives = 1;
     let finalText = "";
+    let timer = null;
+
+    // cada vez que hablas se reinicia; si pasa el tiempo en silencio, se envía
+    const armTimer = (ms) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => rec.stop(), ms);
+    };
 
     rec.onstart = () => {
       setListening(true);
       setVoiceError(null);
+      armTimer(FIRST_WORD_MS);
     };
     rec.onresult = (e) => {
       let partial = "";
@@ -71,6 +88,7 @@ export default function useVoice({ onResult }) {
         else partial += r[0].transcript;
       }
       setInterim(finalText + partial);
+      armTimer(SILENCE_MS);
     };
     rec.onerror = (e) => {
       if (e.error !== "no-speech" && e.error !== "aborted") {
@@ -78,6 +96,7 @@ export default function useVoice({ onResult }) {
       }
     };
     rec.onend = () => {
+      clearTimeout(timer);
       recRef.current = null;
       setListening(false);
       setInterim("");
