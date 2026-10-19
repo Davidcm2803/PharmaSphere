@@ -1,8 +1,10 @@
 from functools import lru_cache
-
-from sentence_transformers import SentenceTransformer
+from typing import TYPE_CHECKING
 
 from app.core.config import settings
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 
 # los modelos e5 necesitan un prefijo delante de cada texto
@@ -12,12 +14,14 @@ def _usa_prefijo_e5(model_name: str) -> bool:
 
 # el modelo se carga una sola vez por nombre y queda en memoria
 @lru_cache(maxsize=4)
-def _cargar(model_name: str) -> SentenceTransformer:
+def _cargar(model_name: str) -> "SentenceTransformer":
+    from sentence_transformers import SentenceTransformer
+
     return SentenceTransformer(model_name, device="cpu")
 
 
 # si no se pasa nombre se usa el que esta en la config
-def get_model(model_name: str | None = None) -> SentenceTransformer:
+def get_model(model_name: str | None = None) -> "SentenceTransformer":
     return _cargar(model_name or settings.embedding_model)
 
 

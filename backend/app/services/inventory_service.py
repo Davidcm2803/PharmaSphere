@@ -184,7 +184,22 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
         id_sucursal=branch.id_sucursal,
         sucursal_nombre=branch.nombre,
     )
-
+    
+# stock total por producto (suma de todas las sucursales)
+def list_stock_totals(db: Session, *, limite: int = 10, ascendente: bool = False) -> List[dict]:
+    total = func.coalesce(func.sum(Inventario.cantidad), 0).label("total")
+    stmt = (
+        select(Producto.nombre, Producto.categoria, total)
+        .outerjoin(Inventario, Inventario.id_producto == Producto.id_producto)
+        .where(Producto.activo.is_(True))
+        .group_by(Producto.id_producto, Producto.nombre, Producto.categoria)
+        .order_by(total.asc() if ascendente else total.desc(), func.lower(Producto.nombre))
+        .limit(limite)
+    )
+    return [
+        {"producto": nombre, "categoria": categoria, "stock_total": int(cantidad)}
+        for nombre, categoria, cantidad in db.execute(stmt).all()
+    ]
 
 # transferencia
 def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
