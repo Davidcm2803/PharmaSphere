@@ -144,11 +144,16 @@ def _productos_stock_bajo(ctx: Contexto, args: dict) -> Resultado:
         low_stock=True,
     )
     if not filas:
+        menores = inventory_service.list_stock_totals(ctx.db, limite=5, ascendente=True)
         return {
             "total": 0,
             "inventario": [],
-            "nota": "No hay productos con stock bajo",
-        }, []
+            "nota": (
+                "Ningún producto está por debajo de su stock mínimo (puede que el "
+                "mínimo no esté configurado). Estos son los de menor stock total."
+            ),
+            "menor_stock": menores,
+        }, _bd("Inventario", "Productos con menor stock")
     return _inventario_datos(filas), _bd("Inventario", "Productos con stock bajo")
 
 
