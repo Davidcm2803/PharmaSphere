@@ -20,6 +20,7 @@ from app.routes import (
     reports_routes,
     sales_routes,
     suppliers_routes,
+    recipes_routes,
 )
 
 
@@ -53,6 +54,7 @@ app.include_router(sales_routes.router, prefix="/api/sales", tags=["sales"])
 app.include_router(purchase_routes.router, prefix="/api/purchases", tags=["purchases"])
 app.include_router(suppliers_routes.router, prefix="/api/suppliers", tags=["suppliers"])
 app.include_router(customers_routes.router, prefix="/api/customers", tags=["customers"])
+app.include_router(recipes_routes.router, prefix="/api/recipes", tags=["recipes"])
 app.include_router(reports_routes.router, prefix="/api/reports", tags=["reports"])
 app.include_router(ai_routes.router, prefix="/api/ai", tags=["ai"])
 
