@@ -1,12 +1,12 @@
 import { useState } from "react";
-import Alert from "../ui/Alert";
-import Button from "../ui/Button";
-import Input from "../ui/Input";
-import Modal from "../ui/Modal";
-import { ENDPOINTS, apiFetch } from "../../config/api";
+import Alert from "../../ui/Alert";
+import Button from "../../ui/Button";
+import Input from "../../ui/Input";
+import Modal from "../../ui/Modal";
+import { ENDPOINTS, apiFetch } from "../../../config/api";
 
-// Se monta solo cuando hay un producto seleccionado (así el formulario
-// siempre empieza vacío). `item` = { id_producto, nombre, cantidad }
+// Se monta solo cuando hay un producto seleccionado (asi el formulario
+// siempre empieza vacio). `item` = { id_producto, nombre, cantidad }
 export default function AjustarStockModal({
   item,
   branchId,

@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from typing import Optional
 
@@ -54,7 +55,7 @@ class BranchOut(BaseModel):
     created_at: datetime
 
 
-#Lo que ve el cliente al elegir dónde retirar: solo datos públicos de la sucursal
+# Datos públicos de la sucursal para el checkout
 class BranchOptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

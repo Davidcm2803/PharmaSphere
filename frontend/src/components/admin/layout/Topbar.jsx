@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, LogOut, Menu, Search } from "lucide-react";
+import { Bell, LogOut, Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "../../../lib/utils";
@@ -18,7 +18,7 @@ const initials = (user) =>
 const iconBtn =
   "flex h-10 w-10 items-center justify-center rounded-full border border-brand-border bg-brand-card text-brand-muted-foreground transition-colors hover:text-brand-foreground";
 
-export default function Topbar({ onMenu, onLogout }) {
+export default function Topbar({ onLogout }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -43,14 +43,13 @@ export default function Topbar({ onMenu, onLogout }) {
 
   return (
     <header className="sticky top-0 z-20 flex h-[92px] items-center justify-between gap-4 border-b border-brand-border bg-brand-card px-5 sm:px-10">
-      <div className="flex min-w-0 items-center gap-3">
-        <button onClick={onMenu} aria-label="Abrir menú" className="text-brand-muted-foreground lg:hidden">
-          <Menu size={22} />
-        </button>
-        <div className="min-w-0 leading-tight">
-          <p className="truncate text-base font-bold text-brand-foreground">{greeting()}, {firstName}</p>
-          <p className="hidden truncate text-sm capitalize sm:block text-brand-muted-foreground">{date}</p>
-        </div>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-base font-bold text-brand-foreground">
+          {greeting()}, {firstName}
+        </p>
+        <p className="hidden truncate text-sm capitalize text-brand-muted-foreground sm:block">
+          {date}
+        </p>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">

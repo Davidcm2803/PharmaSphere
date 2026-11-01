@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../config/api";
 
-// El conexion con el backend en config api
+// GET autenticado (manda el token JWT si existe).
+// Devuelve { data, error, loading, refetch }.
+// Si `path` es null/"" no hace la petición (útil cuando aún falta un parámetro).
 export default function useFetch(path) {
   const [tick, setTick] = useState(0);
   const [result, setResult] = useState({ key: null, data: null, error: null });
@@ -9,6 +11,7 @@ export default function useFetch(path) {
   const requestKey = `${path}|${tick}`;
 
   useEffect(() => {
+    if (!path) return;
     let cancelled = false;
 
     apiFetch(path)
@@ -25,10 +28,12 @@ export default function useFetch(path) {
     };
   }, [path, requestKey]);
 
+  const current = Boolean(path) && result.key === requestKey;
+
   return {
-    data: result.key === requestKey ? result.data : null,
-    error: result.key === requestKey ? result.error : null,
-    loading: result.key !== requestKey,
+    data: current ? result.data : null,
+    error: current ? result.error : null,
+    loading: Boolean(path) && !current,
     refetch: () => setTick((t) => t + 1),
   };
 }

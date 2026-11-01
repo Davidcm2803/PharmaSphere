@@ -3,7 +3,7 @@ import { cn } from "../../../lib/utils";
 
 export default function ActionButton({ variant = "outline", to, className, ...props }) {
   const classes = cn(
-    "inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none",
+    "inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-colors sm:flex-none",
     "disabled:pointer-events-none disabled:opacity-60",
     variant === "primary"
       ? "bg-brand-primary-dark text-brand-primary-foreground shadow-sm hover:bg-brand-primary"

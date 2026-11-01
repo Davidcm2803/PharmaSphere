@@ -19,7 +19,7 @@ const iconAction =
   "flex h-9 w-9 items-center justify-center rounded-lg text-brand-muted-foreground transition-colors hover:bg-brand-muted hover:text-brand-foreground";
 
 const selectClass =
-  "h-10 min-w-[160px] rounded-lg border border-brand-border bg-brand-card px-3 text-sm text-brand-foreground focus:border-brand-primary focus:outline-none";
+  "h-10 w-full rounded-lg border border-brand-border bg-brand-card px-3 text-sm text-brand-foreground focus:border-brand-primary focus:outline-none sm:w-auto sm:min-w-[160px]";
 
 // Valores de ProductSort del backend
 const SORT_OPTIONS = [
@@ -72,7 +72,7 @@ const columns = [
     label: "Receta",
     render: (p) =>
       p.requiere_receta ? (
-        <span className="rounded-full bg-brand-warning-soft px-2.5 py-0.5 text-xs font-semibold text-brand-warning">
+        <span className="whitespace-nowrap rounded-full bg-brand-warning-soft px-2.5 py-0.5 text-xs font-semibold text-brand-warning">
           Requiere receta
         </span>
       ) : (
@@ -170,14 +170,19 @@ export default function Medicines() {
         title="Medicamentos"
         subtitle="Revisa y administra tu catálogo de medicamentos."
         actions={
-          <>
-            <ActionButton onClick={() => setShowFilters((s) => !s)}>
-              <SlidersHorizontal className="mr-2 inline h-4 w-4" />
+          // Celular: Filtros y Reportes comparten fila a partes iguales,
+          // y "Agregar producto" ocupa el ancho completo debajo.
+          // Desde sm: todos en una sola fila.
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+            <ActionButton onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}>
+              <SlidersHorizontal className="h-4 w-4" />
               Filtros{activeFilters > 0 && ` (${activeFilters})`}
             </ActionButton>
             <ActionButton>Ver reportes</ActionButton>
-            <ActionButton to="/admin/productos/nuevo" variant="primary">+ Agregar producto</ActionButton>
-          </>
+            <ActionButton to="/admin/productos/nuevo" variant="primary" className="col-span-2 sm:col-auto">
+              + Agregar producto
+            </ActionButton>
+          </div>
         }
       />
 
@@ -195,7 +200,7 @@ export default function Medicines() {
         </div>
 
         {showFilters && (
-          <div className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-brand-border bg-brand-background p-4">
+          <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-border bg-brand-background p-4 sm:flex-row sm:flex-wrap sm:items-end">
             <label className="flex flex-col gap-1 text-xs font-medium text-brand-muted-foreground">
               Categoría
               <select value={categoria} onChange={(e) => setFilter("categoria", e.target.value)} className={selectClass}>
@@ -225,7 +230,7 @@ export default function Medicines() {
             </label>
 
             {activeFilters > 0 && (
-              <button onClick={clearFilters} className="flex h-10 items-center gap-1 text-sm font-semibold text-brand-primary hover:underline">
+              <button onClick={clearFilters} className="flex h-10 items-center justify-center gap-1 text-sm font-semibold text-brand-primary hover:underline sm:justify-start">
                 <X className="h-4 w-4" /> Limpiar
               </button>
             )}

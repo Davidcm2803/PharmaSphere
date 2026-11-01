@@ -13,7 +13,6 @@ from sqlalchemy.pool import StaticPool
 from app.app import app
 from app.db.base import Base
 from app.db.session import get_db
-from app.models.user_model import Usuario
 from app.services import auth_service, firebase_service
 
 #Base de datos SQLite en memoria: los tests NO tocan tu Postgres
