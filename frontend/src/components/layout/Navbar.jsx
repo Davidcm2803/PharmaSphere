@@ -10,6 +10,8 @@ import {
   Home,
   Sun,
   Moon,
+  Package,
+  UserRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { AuthModal } from "./AuthModal";

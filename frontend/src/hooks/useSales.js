@@ -44,8 +44,30 @@ export function useMySales() {
   }, []);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let active = true;
+
+    getMySales()
+      .then((response) => {
+        if (active) {
+          setOrders(Array.isArray(response) ? response : []);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return { orders, loading, error, refetch };
 }

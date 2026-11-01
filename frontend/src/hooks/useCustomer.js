@@ -21,8 +21,30 @@ export function useMyProfile() {
   }, []);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let active = true;
+
+    getMyProfile()
+      .then((response) => {
+        if (active) {
+          setProfile(response);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return { profile, loading, error, refetch };
 }
