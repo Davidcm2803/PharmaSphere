@@ -19,9 +19,11 @@ export const ENDPOINTS = {
   CATEGORIES: "/categories", // GET público
   SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
   SUPPLIER_OPTIONS: "/suppliers/options",
+  AI_CHAT: "/ai/chat", // POST { pregunta, historial: [{ rol, contenido }] } -> { respuesta, fuentes }
 
   // Sucursales -> /branches y /branches/{id}
   BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}
+  BRANCH_OPTIONS: "/branches/options", // GET (cliente logueado): solo sucursales activas para elegir retiro
 
   // Empleados (ligados a sucursal) -> /employees y /employees/{id}
   EMPLOYEES: "/employees", // GET, POST | PUT, DELETE en /employees/{id}
@@ -30,6 +32,11 @@ export const ENDPOINTS = {
   INVENTORY: "/inventory", // GET ?id_sucursal=1&low_stock=true
   INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
   INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
+
+  // Compras online del cliente
+  SALES: "/sales", // POST { id_sucursal, items: [{ id_producto, cantidad }], telefono?, cedula? } (rol cliente)
+  SALES_ME: "/sales/me", // GET: pedidos del cliente autenticado
+  CUSTOMER_ME: "/customers/me", // GET: perfil del cliente autenticado
 };
 
 const TOKEN_KEY = "pharmasphere_token";

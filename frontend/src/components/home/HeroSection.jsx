@@ -10,7 +10,9 @@ import Button from "../Ui/Button";
 const PARAMS = { orden: "recientes", page_size: 8 };
 
 const getImage = (p) =>
-  assetUrl(p.imagen_url ?? p.url_imagen ?? p.imagen ?? p.image_url ?? p.foto ?? null);
+  assetUrl(
+    p.imagen_url ?? p.url_imagen ?? p.imagen ?? p.image_url ?? p.foto ?? null,
+  );
 const getName = (p) => p.nombre ?? p.name ?? "";
 const heroBtn = "h-10 rounded-lg px-5";
 
@@ -27,7 +29,10 @@ function HeroCarousel({ slides }) {
     ],
     [],
   );
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, duration: 45 }, plugins);
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, duration: 45 },
+    plugins,
+  );
 
   const subscribe = useCallback(
     (notify) => {
@@ -86,7 +91,9 @@ function HeroCarousel({ slides }) {
             aria-label={`Ir a la diapositiva ${i + 1}`}
             aria-current={i === selected}
             className={`h-2 rounded-full transition-all ${
-              i === selected ? "w-6 bg-brand-primary" : "w-2 bg-brand-primary/30 hover:bg-brand-primary/60"
+              i === selected
+                ? "w-6 bg-brand-primary"
+                : "w-2 bg-brand-primary/30 hover:bg-brand-primary/60"
             }`}
           />
         ))}
@@ -124,7 +131,8 @@ export default function Hero() {
           </h1>
 
           <p className="mt-5 max-w-md text-base leading-relaxed text-brand-muted-foreground">
-            Productos de bienestar, asesoría de confianza y atención de farmacia, todo en un solo lugar.
+            Productos de bienestar, asesoría de confianza y atención de
+            farmacia, todo en un solo lugar.
           </p>
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:mt-8">
@@ -135,7 +143,11 @@ export default function Hero() {
               Comprar medicamentos
               <ArrowUpRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" className={heroBtn} onClick={() => navigate("/categories")}>
+            <Button
+              variant="outline"
+              className={heroBtn}
+              onClick={() => navigate("/categories")}
+            >
               Explorar categorías
             </Button>
           </div>

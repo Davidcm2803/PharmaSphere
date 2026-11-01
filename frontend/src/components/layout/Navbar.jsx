@@ -14,6 +14,7 @@ import {
 import { cn } from "../../lib/utils";
 import { AuthModal } from "./AuthModal";
 import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext"; // NUEVO
 
 const NAV_LINKS = [
   { to: "/shop", label: "Shop" },
@@ -66,8 +67,10 @@ const bottomItem = (active = false) =>
       : "text-brand-muted-foreground hover:text-brand-foreground",
   );
 
-export default function Navbar({ cartCount = 0 }) {
+export default function Navbar() {
+  // CAMBIÓ: ya no recibe cartCount por props
   const { user, loading, logout } = useAuth();
+  const { count: cartCount } = useCart(); // NUEVO
   const navigate = useNavigate();
 
   const [showModal, setShowModal] = useState(false);
@@ -82,7 +85,7 @@ export default function Navbar({ cartCount = 0 }) {
     try {
       localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
     } catch {
-      //localStorega no dosponible
+      // localStorage no disponible: el tema solo vive en esta sesión
     }
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
@@ -166,6 +169,24 @@ export default function Navbar({ cartCount = 0 }) {
                     {getInitials(user)}
                   </span>
 
+                  {user.rol === "cliente" && (
+                    <>
+                      <Link
+                        to="/mis-pedidos"
+                        className="text-sm font-semibold text-brand-muted-foreground transition-colors hover:text-brand-primary"
+                      >
+                        Mis pedidos
+                      </Link>
+
+                      <Link
+                        to="/mi-perfil"
+                        className="text-sm font-semibold text-brand-muted-foreground transition-colors hover:text-brand-primary"
+                      >
+                        Mi perfil
+                      </Link>
+                    </>
+                  )}
+
                   {isStaff && (
                     <Link
                       to="/admin"
@@ -243,6 +264,26 @@ export default function Navbar({ cartCount = 0 }) {
           </span>
           Carrito
         </NavLink>
+
+        {user?.rol === "cliente" && (
+          <>
+            <NavLink
+              to="/mis-pedidos"
+              className={({ isActive }) => bottomItem(isActive)}
+            >
+              <Package className="h-5 w-5" />
+              Pedidos
+            </NavLink>
+
+            <NavLink
+              to="/mi-perfil"
+              className={({ isActive }) => bottomItem(isActive)}
+            >
+              <UserRound className="h-5 w-5" />
+              Perfil
+            </NavLink>
+          </>
+        )}
 
         {/* Solo aparece para admin y empleado */}
         {user && isStaff && (
