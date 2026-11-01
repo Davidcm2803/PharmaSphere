@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Pill } from "lucide-react";
 import { formatPrice } from "../../lib/format";
+import AddToCartButton from "./AddToCartButton";
 
 // Muestra imagen_url como fallback y la foto nunca lo estira. `className` se usa para el padding interno.
 export function ProductImage({ src, alt, className = "" }) {
@@ -9,7 +10,9 @@ export function ProductImage({ src, alt, className = "" }) {
 
   if (!src || failed) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center text-brand-primary/40 ${className}`}>
+      <div
+        className={`absolute inset-0 flex items-center justify-center text-brand-primary/40 ${className}`}
+      >
         <Pill className="h-1/3 w-1/3 -rotate-45" strokeWidth={1.25} />
       </div>
     );
@@ -26,32 +29,43 @@ export function ProductImage({ src, alt, className = "" }) {
 }
 
 export default function ProductCard({ product }) {
-  const { id_producto, nombre, categoria, precio, requiere_receta, imagen_url } = product;
+  const {
+    id_producto,
+    nombre,
+    categoria,
+    precio,
+    requiere_receta,
+    imagen_url,
+  } = product;
 
   return (
-    <Link
-      to={`/shop/${id_producto}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-card transition hover:border-brand-primary/50 hover:shadow-lg"
-    >
-      <div className="relative aspect-square overflow-hidden bg-brand-muted">
-        <ProductImage src={imagen_url} alt={nombre} className="p-6" />
-        {requiere_receta && (
-          <span className="absolute left-3 top-3 rounded-full bg-brand-warning-soft px-3 py-1 text-xs font-semibold text-brand-warning">
-            Requiere receta
-          </span>
-        )}
+    <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-card transition hover:border-brand-primary/50 hover:shadow-lg">
+      <Link to={`/shop/${id_producto}`} className="flex flex-1 flex-col">
+        <div className="relative aspect-square overflow-hidden bg-brand-muted">
+          <ProductImage src={imagen_url} alt={nombre} className="p-6" />
+          {requiere_receta && (
+            <span className="absolute left-3 top-3 rounded-full bg-brand-warning-soft px-3 py-1 text-xs font-semibold text-brand-warning">
+              Requiere receta
+            </span>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col gap-1 p-4">
+          {categoria && (
+            <span className="text-xs font-semibold text-brand-primary">
+              {categoria}
+            </span>
+          )}
+          <h3 className="line-clamp-2 font-semibold text-brand-foreground transition-colors group-hover:text-brand-primary">
+            {nombre}
+          </h3>
+          <p className="mt-auto pt-3 text-lg font-bold text-brand-foreground">
+            {formatPrice(precio)}
+          </p>
+        </div>
+      </Link>
+      <div className="px-4 pb-4">
+        <AddToCartButton product={product} className="w-full" />
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        {categoria && (
-          <span className="text-xs font-semibold text-brand-primary">{categoria}</span>
-        )}
-        <h3 className="line-clamp-2 font-semibold text-brand-foreground transition-colors group-hover:text-brand-primary">
-          {nombre}
-        </h3>
-        <p className="mt-auto pt-3 text-lg font-bold text-brand-foreground">
-          {formatPrice(precio)}
-        </p>
-      </div>
-    </Link>
+    </div>
   );
 }
