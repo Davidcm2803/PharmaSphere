@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Pill,
   Search,
@@ -10,13 +10,12 @@ import {
   Home,
   Sun,
   Moon,
-  Package,
   UserRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { AuthModal } from "./AuthModal";
 import { useAuth } from "../../context/AuthContext";
-import { useCart } from "../../context/CartContext"; // NUEVO
+import { useCart } from "../../context/CartContext";
 
 const NAV_LINKS = [
   { to: "/shop", label: "Shop" },
@@ -69,10 +68,108 @@ const bottomItem = (active = false) =>
       : "text-brand-muted-foreground hover:text-brand-foreground",
   );
 
+// Menú de usuario estilo Microsoft: avatar que abre una tarjeta
+function UserMenu({ user, isStaff, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const { pathname } = useLocation();
+
+  // Cerrar al navegar
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Cerrar con clic fuera o con Escape
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const handleKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Menú de usuario"
+        title={user.nombre || user.correo}
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-border bg-brand-accent text-sm font-bold text-brand-accent-foreground transition-colors hover:border-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary"
+      >
+        {getInitials(user)}
+      </button>
+
+      {open && (
+        <div
+  role="menu"
+  className="absolute left-1/2 top-full z-50 mt-3 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md border border-brand-border bg-brand-card p-5 shadow-xl"
+>
+          {/* Fila superior: marca a la izquierda, cerrar sesión a la derecha */}
+          <div className="mb-4 flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-semibold text-brand-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-brand-primary text-brand-primary-foreground">
+                <Pill className="h-3 w-3 -rotate-45" />
+              </span>
+              PharmaIQ
+            </span>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="text-sm text-brand-foreground transition-colors hover:text-brand-primary hover:underline"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+
+          <div className="flex items-center gap-5">
+            <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-brand-muted text-brand-muted-foreground">
+              <UserRound className="h-11 w-11" />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xl font-bold text-brand-foreground">
+                {user.nombre || "Mi cuenta"}
+              </p>
+              <p className="mt-1 truncate text-sm text-brand-foreground">
+                {user.correo}
+              </p>
+
+              <Link
+                to={isStaff ? "/admin" : "/mi-perfil"}
+                role="menuitem"
+                className="mt-1 inline-block text-sm text-brand-primary underline underline-offset-2 hover:opacity-80"
+              >
+                {isStaff ? "Panel de administración" : "Ver cuenta"}
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar() {
-  // CAMBIÓ: ya no recibe cartCount por props
   const { user, loading, logout } = useAuth();
-  const { count: cartCount } = useCart(); // NUEVO
+  const { count: cartCount } = useCart();
   const navigate = useNavigate();
 
   const [showModal, setShowModal] = useState(false);
@@ -145,6 +242,7 @@ export default function Navbar() {
               </span>
             </span>
           </Link>
+
           <nav
             className="hidden items-center gap-7 xl:flex"
             aria-label="Principal"
@@ -155,59 +253,21 @@ export default function Navbar() {
               </NavLink>
             ))}
           </nav>
+
           <div className="ml-auto hidden max-w-[480px] flex-1 xl:block">
             {searchForm}
           </div>
+
           <div className="ml-auto flex items-center gap-2.5 xl:ml-0">
             <div className="hidden items-center gap-2.5 xl:flex">
               {loading ? (
-                <div className="h-10 w-36 animate-pulse rounded-lg bg-brand-muted" />
+                <div className="h-10 w-10 animate-pulse rounded-full bg-brand-muted" />
               ) : user ? (
-                <>
-                  <span
-                    title={user.nombre || user.correo}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-accent text-sm font-bold text-brand-accent-foreground"
-                  >
-                    {getInitials(user)}
-                  </span>
-
-                  {user.rol === "cliente" && (
-                    <>
-                      <Link
-                        to="/mis-pedidos"
-                        className="text-sm font-semibold text-brand-muted-foreground transition-colors hover:text-brand-primary"
-                      >
-                        Mis pedidos
-                      </Link>
-
-                      <Link
-                        to="/mi-perfil"
-                        className="text-sm font-semibold text-brand-muted-foreground transition-colors hover:text-brand-primary"
-                      >
-                        Mi perfil
-                      </Link>
-                    </>
-                  )}
-
-                  {isStaff && (
-                    <Link
-                      to="/admin"
-                      className="flex items-center gap-1.5 px-1 text-sm font-semibold text-brand-muted-foreground transition-colors hover:text-brand-foreground"
-                    >
-                      <LayoutDashboard className="h-4 w-4" />
-                      Admin
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={handleLogout}
-                    title="Cerrar sesión"
-                    aria-label="Cerrar sesión"
-                    className={cn(outlineBtn, "h-10 w-10")}
-                  >
-                    <LogOut className="h-[18px] w-[18px]" />
-                  </button>
-                </>
+                <UserMenu
+                  user={user}
+                  isStaff={isStaff}
+                  onLogout={handleLogout}
+                />
               ) : (
                 <button
                   onClick={() => setShowModal(true)}
@@ -218,6 +278,7 @@ export default function Navbar() {
                 </button>
               )}
             </div>
+
             <button
               onClick={() => setDark((d) => !d)}
               title={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
@@ -232,6 +293,7 @@ export default function Navbar() {
                 <Moon className="h-[18px] w-[18px]" />
               )}
             </button>
+
             <Link
               to="/cart"
               aria-label={`Carrito, ${cartCount} productos`}
@@ -244,8 +306,11 @@ export default function Navbar() {
             </Link>
           </div>
         </div>
+
         <div className="px-6 pb-3 sm:px-10 xl:hidden">{searchForm}</div>
       </header>
+
+      {/* Barra inferior móvil */}
       <nav
         aria-label="Navegación móvil"
         className="fixed inset-x-0 bottom-0 z-50 flex border-t border-brand-border bg-brand-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
@@ -268,23 +333,13 @@ export default function Navbar() {
         </NavLink>
 
         {user?.rol === "cliente" && (
-          <>
-            <NavLink
-              to="/mis-pedidos"
-              className={({ isActive }) => bottomItem(isActive)}
-            >
-              <Package className="h-5 w-5" />
-              Pedidos
-            </NavLink>
-
-            <NavLink
-              to="/mi-perfil"
-              className={({ isActive }) => bottomItem(isActive)}
-            >
-              <UserRound className="h-5 w-5" />
-              Perfil
-            </NavLink>
-          </>
+          <NavLink
+            to="/mi-perfil"
+            className={({ isActive }) => bottomItem(isActive)}
+          >
+            <UserRound className="h-5 w-5" />
+            Perfil
+          </NavLink>
         )}
 
         {/* Solo aparece para admin y empleado */}
@@ -297,6 +352,7 @@ export default function Navbar() {
             Admin
           </NavLink>
         )}
+
         {!loading &&
           (user ? (
             <button onClick={handleLogout} className={bottomItem()}>
