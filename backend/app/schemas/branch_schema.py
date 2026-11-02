@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from typing import Optional
 
@@ -52,3 +53,13 @@ class BranchOut(BaseModel):
     telefono: Optional[str] = None
     activo: bool
     created_at: datetime
+
+
+# Datos públicos de la sucursal para el checkout
+class BranchOptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id_sucursal: int
+    nombre: str
+    direccion: Optional[str] = None
+    telefono: Optional[str] = None
