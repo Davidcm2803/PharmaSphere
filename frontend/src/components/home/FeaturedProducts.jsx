@@ -37,7 +37,7 @@ function ProductCarousel({ items }) {
         <ChevronRight className="h-5 w-5" />
       </button>
       <div ref={emblaRef} className="-my-4 select-none overflow-hidden py-4 [&_img]:pointer-events-none">
-        <div className="-ml-3 flex [touch-action:pan-y_pinch-zoom] sm:-ml-5">
+        <div className="group/list -ml-3 flex [touch-action:pan-y_pinch-zoom] sm:-ml-5">
           {items.map((product) => (
             <div
               key={product.id_producto}

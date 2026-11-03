@@ -97,7 +97,8 @@ export default function ProductDetailPage() {
 
             <AddToCartButton
               product={p}
-              className="mt-8 w-full sm:w-auto sm:min-w-[280px]"
+              showQuantity
+              className="mt-8 w-full sm:w-auto sm:min-w-[380px]"
             />
 
             <dl className="mt-8 grid grid-cols-2 gap-4 border-t border-brand-border pt-6">

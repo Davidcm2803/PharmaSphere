@@ -1,7 +1,9 @@
 ﻿from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db.base import Base
@@ -21,6 +23,9 @@ from app.routes import (
     sales_routes,
     suppliers_routes,
 )
+
+STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+(STATIC_DIR / "productos").mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
@@ -42,6 +47,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(products_routes.router, prefix="/api/products", tags=["products"])

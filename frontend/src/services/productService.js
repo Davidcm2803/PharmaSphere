@@ -14,3 +14,9 @@ export const getProductById = (id) =>
 
 export const getCategories = () =>
   apiFetch(ENDPOINTS.CATEGORIES, { auth: false });
+
+export const uploadProductImage = (file) => {
+  const body = new FormData();
+  body.append("file", file);
+  return apiFetch(ENDPOINTS.PRODUCT_IMAGE, { method: "POST", body });
+};
