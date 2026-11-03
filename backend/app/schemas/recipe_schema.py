@@ -1,15 +1,22 @@
 from datetime import date
+from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-MAX_CANTIDAD = 1000
+MAX_CANTIDAD = 10000
+
+
+class RecipeState(str, Enum):
+    vigente = "vigente"
+    usada = "usada"
+    vencida = "vencida"
 
 
 def _blank_to_none(value):
     if isinstance(value, str):
         value = value.strip()
-        return value or None
+        return None if value == "" else value
     return value
 
 
@@ -36,8 +43,9 @@ class RecipeCreate(BaseModel):
     _archivo = field_validator("archivo_url", mode="before")(_check_archivo)
 
 
-# Todo opcional. Cliente y producto no se cambian (se crea otra receta).
-# "usada" no se puede poner a mano: solo la deja así una venta
+# Todo opcional: solo se cambia lo que se envía.
+# El cliente y el producto no se pueden cambiar: si se equivocaron, se elimina
+# la receta y se crea otra. "usada" no se puede poner a mano: solo la deja así una venta
 class RecipeUpdate(BaseModel):
     cantidad: Optional[int] = Field(default=None, ge=1, le=MAX_CANTIDAD)
     medico: Optional[str] = Field(default=None, max_length=150)
@@ -51,17 +59,19 @@ class RecipeUpdate(BaseModel):
 
 
 class RecipeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id_receta: int
     id_cliente: int
     cliente_nombre: str
     cliente_cedula: Optional[str] = None
     id_producto: int
     producto_nombre: str
-    medico: Optional[str] = None
     cantidad: int
+    medico: Optional[str] = None
     fecha: date
     vigencia_hasta: Optional[date] = None
-    # Estado real: una receta "vigente" cuya fecha ya pasó se muestra como "vencida"
-    estado: str
+    # Estado real: una receta 'vigente' cuya fecha ya pasó se muestra como 'vencida'
+    estado: RecipeState
     archivo_url: Optional[str] = None
     id_venta: Optional[int] = None

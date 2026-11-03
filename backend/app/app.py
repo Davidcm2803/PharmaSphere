@@ -23,6 +23,7 @@ from app.routes import (
     reports_routes,
     sales_routes,
     suppliers_routes,
+    recipes_routes,
 )
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"

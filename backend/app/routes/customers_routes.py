@@ -1,23 +1,37 @@
-﻿from typing import Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies.auth_dependencies import require_role
 from app.models.user_model import Usuario
-from app.schemas.customer_schema import CustomerCreate, CustomerOut, CustomerUpdate
+from app.schemas.customer_schema import (
+    CustomerCreate,
+    CustomerOut,
+    CustomerSaleOut,
+    CustomerUpdate,
+)
 from app.services import customer_service
 from app.utils.pagination import Page, PageParams, build_page, get_page_params
 
 router = APIRouter()
 
 
-def _not_found():
+def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
 
 
-# Perfil del cliente autenticado (las rutas fijas van antes que /{id_cliente})
+def _get_or_404(db: Session, id_cliente: int):
+    cliente = customer_service.get_customer(db, id_cliente)
+    if cliente is None:
+        raise _not_found()
+    return cliente
+
+
+# Perfil del cliente autenticado.
+# IMPORTANTE: debe ir ANTES de "/{id_cliente}", si no FastAPI intenta
+# interpretar "me" como un id_cliente entero y devuelve 422.
 @router.get("/me", response_model=CustomerOut)
 def get_my_profile(
     db: Session = Depends(get_db),
@@ -37,36 +51,25 @@ def get_my_profile(
     return cliente
 
 
-# Panel: lista paginada; ?q busca por nombre, cédula o correo; ?cedula es exacta (POS)
+# Panel: lista paginada. ?q busca por nombre, cédula, correo o teléfono;
+# ?cedula es exacta (la usa el POS)
 @router.get("", response_model=Page[CustomerOut])
 def list_customers(
-    q: Optional[str] = Query(None, max_length=100, description="Nombre, cédula o correo"),
+    q: Optional[str] = Query(None, max_length=100, description="Nombre, cédula, correo o teléfono"),
     cedula: Optional[str] = Query(None, max_length=50, description="Cédula exacta"),
     params: PageParams = Depends(get_page_params),
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(require_role("admin", "empleado")),
+    _staff: Usuario = Depends(require_role("admin", "empleado")),
 ):
-    rows, total = customer_service.list_customers(db, q=q, cedula=cedula, params=params)
-    return build_page([CustomerOut.model_validate(c) for c in rows], total, params)
-
-
-@router.get("/{id_cliente}", response_model=CustomerOut)
-def get_customer(
-    id_cliente: int,
-    db: Session = Depends(get_db),
-    _user: Usuario = Depends(require_role("admin", "empleado")),
-):
-    cliente = customer_service.get_customer(db, id_cliente)
-    if cliente is None:
-        raise _not_found()
-    return cliente
+    clientes, total = customer_service.list_customers(db, q=q, cedula=cedula, params=params)
+    return build_page([CustomerOut.model_validate(c) for c in clientes], total, params)
 
 
 @router.post("", response_model=CustomerOut, status_code=status.HTTP_201_CREATED)
 def create_customer(
     data: CustomerCreate,
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(require_role("admin", "empleado")),
+    _staff: Usuario = Depends(require_role("admin", "empleado")),
 ):
     try:
         return customer_service.create_customer(db, data)
@@ -74,17 +77,51 @@ def create_customer(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
 
 
+@router.get("/{id_cliente}", response_model=CustomerOut)
+def get_customer(
+    id_cliente: int,
+    db: Session = Depends(get_db),
+    _staff: Usuario = Depends(require_role("admin", "empleado")),
+):
+    return _get_or_404(db, id_cliente)
+
+
+# Historial de compras del cliente, con los productos de cada venta
+@router.get("/{id_cliente}/historial", response_model=Page[CustomerSaleOut])
+def get_purchase_history(
+    id_cliente: int,
+    params: PageParams = Depends(get_page_params),
+    db: Session = Depends(get_db),
+    _staff: Usuario = Depends(require_role("admin", "empleado")),
+):
+    _get_or_404(db, id_cliente)
+    items, total = customer_service.list_purchase_history(db, id_cliente, params)
+    return build_page(items, total, params)
+
+
 @router.put("/{id_cliente}", response_model=CustomerOut)
 def update_customer(
     id_cliente: int,
     data: CustomerUpdate,
     db: Session = Depends(get_db),
-    _user: Usuario = Depends(require_role("admin", "empleado")),
+    _staff: Usuario = Depends(require_role("admin", "empleado")),
 ):
-    cliente = customer_service.get_customer(db, id_cliente)
-    if cliente is None:
-        raise _not_found()
+    cliente = _get_or_404(db, id_cliente)
     try:
         return customer_service.update_customer(db, cliente, data)
     except customer_service.CustomerConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
+
+
+@router.delete("/{id_cliente}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_customer(
+    id_cliente: int,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(require_role("admin")),
+):
+    cliente = _get_or_404(db, id_cliente)
+    try:
+        customer_service.delete_customer(db, cliente)
+    except customer_service.CustomerInUseError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

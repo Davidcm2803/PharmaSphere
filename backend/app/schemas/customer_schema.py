@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.product_schema import Money
 
 # Correo simple (sin depender de email-validator): algo@dominio.ext
 _CORREO = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -13,10 +15,18 @@ def _strip(value):
 
 def _blank_to_none(value):
     value = _strip(value)
-    return value or None
+    return None if value == "" else value
 
 
-# Campos que el empleado o admin envía al registrar un cliente (por ejemplo desde el POS)
+def _correo(value):
+    """Vacío -> None y siempre en minúsculas ("ANA@Mail.com" y "ana@mail.com" son el mismo)."""
+    value = _blank_to_none(value)
+    if isinstance(value, str):
+        return value.lower()
+    return value
+
+
+# Campos que se envían al crear un cliente (mostrador, POS o panel)
 class CustomerCreate(BaseModel):
     nombre: str = Field(min_length=2, max_length=150)
     cedula: Optional[str] = Field(default=None, max_length=50)
@@ -25,9 +35,8 @@ class CustomerCreate(BaseModel):
     direccion: Optional[str] = Field(default=None, max_length=255)
 
     _strip_nombre = field_validator("nombre", mode="before")(_strip)
-    _blank = field_validator("cedula", "telefono", "correo", "direccion", mode="before")(
-        _blank_to_none
-    )
+    _blank_texts = field_validator("cedula", "telefono", "direccion", mode="before")(_blank_to_none)
+    _norm_correo = field_validator("correo", mode="before")(_correo)
 
 
 # Todo opcional: solo se cambia lo que se envía. En campos con texto, "" equivale a null
@@ -38,9 +47,10 @@ class CustomerUpdate(BaseModel):
     correo: Optional[str] = Field(default=None, max_length=150, pattern=_CORREO)
     direccion: Optional[str] = Field(default=None, max_length=255)
 
-    _blank = field_validator(
-        "nombre", "cedula", "telefono", "correo", "direccion", mode="before"
+    _blank_texts = field_validator(
+        "nombre", "cedula", "telefono", "direccion", mode="before"
     )(_blank_to_none)
+    _norm_correo = field_validator("correo", mode="before")(_correo)
 
 
 class CustomerOut(BaseModel):
@@ -53,3 +63,24 @@ class CustomerOut(BaseModel):
     correo: Optional[str] = None
     direccion: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+class SaleItemOut(BaseModel):
+    id_producto: int
+    producto_nombre: str
+    cantidad: int
+    precio_unitario: Money
+    subtotal: Money
+
+
+# Una compra del historial del cliente, con sus productos
+class CustomerSaleOut(BaseModel):
+    id_venta: int
+    fecha: datetime
+    id_sucursal: int
+    sucursal_nombre: str
+    tipo: str
+    estado: str
+    metodo_pago: Optional[str] = None
+    total: Money
+    items: List[SaleItemOut]
