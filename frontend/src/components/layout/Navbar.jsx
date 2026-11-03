@@ -124,7 +124,7 @@ function UserMenu({ user, isStaff, onLogout }) {
               <span className="flex h-5 w-5 items-center justify-center rounded bg-brand-primary text-brand-primary-foreground">
                 <Pill className="h-3 w-3 -rotate-45" />
               </span>
-              PharmaIQ
+              PharmaSphere
             </span>
 
             <button
@@ -236,7 +236,7 @@ export default function Navbar() {
             </span>
             <span className="leading-tight">
               <span className="block text-base font-bold text-brand-foreground">
-                Pharma<span className="text-brand-primary">IQ</span>
+                Pharma<span className="text-brand-primary">Sphere</span>
               </span>
               <span className="hidden text-[10px] font-semibold tracking-[0.2em] text-brand-muted-foreground sm:block">
                 PHARMACY INTELLIGENCE
