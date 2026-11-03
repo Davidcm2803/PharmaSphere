@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.dependencies.auth_dependencies import bearer_scheme, get_current_user, require_role
 from app.models.user_model import Usuario
 from app.schemas.product_schema import (
+    ImageUploadOut,
     ProductAdminOut,
     ProductCreate,
     ProductOut,
@@ -73,6 +74,20 @@ def list_products(
     )
     items = [_out(ProductOut, p, stock) for p, stock in rows]
     return build_page(items, total, params)
+
+
+@router.post("/image", response_model=ImageUploadOut, status_code=status.HTTP_201_CREATED)
+def upload_product_image(
+    file: UploadFile = File(...),
+    _admin: Usuario = Depends(require_role("admin")),
+):
+    try:
+        url = product_service.save_product_image(
+            file.file.read(product_service.MAX_IMAGE_BYTES + 1)
+        )
+    except product_service.InvalidImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return {"imagen_url": url}
 
 #Client con stock total, si la consulta es de un admin, la respuesta incluye costo y estado
 #y puede ver productos deshabilitados. response_model=None porque cambia según el rol

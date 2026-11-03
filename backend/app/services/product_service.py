@@ -1,3 +1,5 @@
+import uuid
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
@@ -12,8 +14,15 @@ from app.utils.pagination import PageParams, paginate
 #Campos que aceptan NULL: si el admin los manda como null se limpian. El resto se ignora
 _NULLABLE = {"descripcion", "categoria", "imagen_url", "id_proveedor"}
 
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+_IMAGES_DIR = Path(__file__).resolve().parents[2] / "static" / "productos"
+
 
 class InvalidSupplierError(Exception):
+    pass
+
+
+class InvalidImageError(Exception):
     pass
 
 
@@ -136,3 +145,27 @@ def list_categories(db: Session) -> List[str]:
         .order_by(Producto.categoria)
     )
     return list(db.scalars(stmt))
+
+
+def _detect_extension(content: bytes) -> Optional[str]:
+    if content.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def save_product_image(content: bytes) -> str:
+    if not content:
+        raise InvalidImageError("El archivo está vacío")
+    if len(content) > MAX_IMAGE_BYTES:
+        raise InvalidImageError("La imagen no puede pesar más de 5 MB")
+    ext = _detect_extension(content)
+    if ext is None:
+        raise InvalidImageError("Formato no válido: usa JPG, PNG o WEBP")
+    _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}.{ext}"
+    (_IMAGES_DIR / name).write_bytes(content)
+    return f"/static/productos/{name}"

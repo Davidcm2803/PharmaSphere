@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { cn } from "../../../lib/utils";
 import useFetch from "../../../hooks/useFetch";
+import { useProductImageUpload } from "../../../hooks/useProducts";
 import { ENDPOINTS, apiFetch } from "../../../config/api";
 import ActionButton from "../ui/ActionButton";
 import Dropdown from "../ui/Dropdown";
 import Field from "../ui/Field";
+import ImageField from "../ui/ImageField";
 import Notice from "../ui/Notice";
 import Panel from "../ui/Panel";
 
@@ -51,6 +53,7 @@ export default function ProductForm({ product }) {
   const navigate = useNavigate();
   const isEdit = Boolean(product);
   const [formError, setFormError] = useState(null);
+  const { upload, uploading, error: uploadError } = useProductImageUpload();
 
   const {
     register, handleSubmit, setError, control,
@@ -69,7 +72,6 @@ export default function ProductForm({ product }) {
     label: s.nombre,
   }));
   const categoryOptions = (categories.data ?? []).map((c) => ({ value: c, label: c }));
-  const imageUrl = useWatch({ control, name: "imagen_url" })?.trim();
 
   const onSubmit = async (values) => {
     setFormError(null);
@@ -181,23 +183,22 @@ export default function ProductForm({ product }) {
             />
           </Field>
 
-          <Field label="Imagen (URL)" error={errors.imagen_url?.message} className="md:col-span-2">
-            <input
-              type="url"
-              className={inputClass(errors.imagen_url)}
-              placeholder="https://…"
-              {...register("imagen_url", { maxLength: { value: 500, message: "Máximo 500 caracteres" } })}
+          <Field label="Imagen" error={errors.imagen_url?.message} className="md:col-span-2">
+            <Controller
+              name="imagen_url"
+              control={control}
+              rules={{ maxLength: { value: 500, message: "Máximo 500 caracteres" } }}
+              render={({ field }) => (
+                <ImageField
+                  value={field.value}
+                  onChange={field.onChange}
+                  onUpload={upload}
+                  uploading={uploading}
+                  error={uploadError}
+                />
+              )}
             />
           </Field>
-          {imageUrl && (
-            <img
-              key={imageUrl}
-              src={imageUrl}
-              alt="Vista previa del producto"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-              className="h-32 w-32 rounded-2xl border border-brand-border object-cover md:col-span-2"
-            />
-          )}
 
           <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-brand-border p-4 md:col-span-2">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-primary" {...register("requiere_receta")} />
@@ -213,7 +214,7 @@ export default function ProductForm({ product }) {
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <ActionButton to="/admin/productos">Cancelar</ActionButton>
-        <ActionButton type="submit" variant="primary" disabled={isSubmitting}>
+        <ActionButton type="submit" variant="primary" disabled={isSubmitting || uploading}>
           {isSubmitting ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear producto"}
         </ActionButton>
       </div>

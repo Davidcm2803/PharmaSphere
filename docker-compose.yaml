@@ -40,7 +40,6 @@
       - "8010:8000"
     volumes:
       - ./backend:/app
-      # cache de modelos para no descargarlos cada vez que se recrea el contenedor
       - pharmasphere_hf_cache:/root/.cache/huggingface
     depends_on:
       db:
@@ -48,7 +47,22 @@
       qdrant:
         condition: service_started
 
+  cutouts:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.tools
+    container_name: pharmasphere_cutouts
+    profiles: ["tools"]
+    environment:
+      API_URL: http://backend:8000/api
+    volumes:
+      - ./backend:/app
+      - pharmasphere_rembg_cache:/root/.u2net
+    depends_on:
+      - backend
+
 volumes:
   pharmasphere_db_data:
   pharmasphere_qdrant_data:
   pharmasphere_hf_cache:
+  pharmasphere_rembg_cache:

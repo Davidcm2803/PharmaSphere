@@ -16,6 +16,7 @@ export const ENDPOINTS = {
   AUTH_ME: "/auth/me", // GET (requiere token)
   AUTH_USERS: "/auth/users", // GET (solo admin)
   PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
+  PRODUCT_IMAGE: "/products/image", // POST multipart (admin) -> { imagen_url }
   CATEGORIES: "/categories", // GET público
   SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
   SUPPLIER_OPTIONS: "/suppliers/options",
@@ -37,6 +38,7 @@ export const ENDPOINTS = {
   SALES: "/sales", // POST { id_sucursal, items: [{ id_producto, cantidad }], telefono?, cedula? } (rol cliente)
   SALES_ME: "/sales/me", // GET: pedidos del cliente autenticado
   CUSTOMER_ME: "/customers/me", // GET: perfil del cliente autenticado
+  SALES_TOP: "/sales/top-products", // GET público: más vendidos
 };
 
 const TOKEN_KEY = "pharmasphere_token";
@@ -49,14 +51,15 @@ export async function apiFetch(
   path,
   { method = "GET", body, auth = true } = {},
 ) {
-  const headers = { "Content-Type": "application/json" };
+  const isForm = body instanceof FormData;
+  const headers = isForm ? {} : { "Content-Type": "application/json" };
   const token = getToken();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
   const data = await res.json().catch(() => null);

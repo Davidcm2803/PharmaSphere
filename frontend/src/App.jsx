@@ -13,7 +13,6 @@ import CheckoutPage from "./pages/Public/CheckoutPage";
 import OrderConfirmationPage from "./pages/Public/OrderConfirmationPage";
 
 // Nuevas paginas del sprint
-import MyOrdersPage from "./pages/Public/MyOrdersPage";
 import ProfilePage from "./pages/Public/ProfilePage";
 
 // BrowserRouter y AuthProvider viven en main.jsx
@@ -37,7 +36,10 @@ export default function App() {
           <Route path="/checkout/exito" element={<OrderConfirmationPage />} />
 
           {/* Nuevas rutas */}
-          <Route path="/mis-pedidos" element={<MyOrdersPage />} />
+          <Route
+            path="/mis-pedidos"
+            element={<Navigate to="/mi-perfil?seccion=pedidos" replace />}
+          />
           <Route path="/mi-perfil" element={<ProfilePage />} />
         </Route>
       </Route>

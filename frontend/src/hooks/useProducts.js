@@ -3,6 +3,7 @@ import {
   getCategories,
   getProductById,
   getProducts,
+  uploadProductImage,
 } from "../services/productService";
 
 // Ejecuta `fn` cada vez que cambia `key` y expone { data, loading, error, retry }
@@ -38,3 +39,24 @@ export const useProducts = (params) =>
 export const useProduct = (id) => useAsync(() => getProductById(id), String(id));
 
 export const useCategories = () => useAsync(getCategories, "categories");
+
+export const useProductImageUpload = () => {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const upload = async (file) => {
+    setUploading(true);
+    setError(null);
+    try {
+      const { imagen_url } = await uploadProductImage(file);
+      return imagen_url;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return { upload, uploading, error };
+};
