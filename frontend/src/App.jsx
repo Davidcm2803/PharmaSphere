@@ -13,7 +13,6 @@ import CheckoutPage from "./pages/Public/CheckoutPage";
 import OrderConfirmationPage from "./pages/Public/OrderConfirmationPage";
 
 // Nuevas paginas del sprint
-import MyOrdersPage from "./pages/Public/MyOrdersPage";
 import ProfilePage from "./pages/Public/ProfilePage";
 
 // BrowserRouter y AuthProvider viven en main.jsx

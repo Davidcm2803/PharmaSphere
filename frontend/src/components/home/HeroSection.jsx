@@ -85,10 +85,8 @@ const productV = {
   }),
 };
 
-/* ───────────────────────── Piezas ───────────────────────── */
+/*  Piezas  */
 
-// PNG sin fondo → foto original (tarjeta redondeada) → ícono.
-// Se pinta con `absolute inset-0`: el tamaño natural de la imagen jamás afecta el layout.
 function ProductImage({ slide, small = false }) {
   const sources = [slide.cutout, slide.src].filter(Boolean);
   const [stage, setStage] = useState(0);
@@ -133,7 +131,7 @@ function CountUp({ value }) {
   return <motion.span>{text}</motion.span>;
 }
 
-/* ───────────────────────── Hero ───────────────────────── */
+/* Hero */
 
 function HeroStage({ slides }) {
   const reduce = useReducedMotion();
@@ -141,7 +139,7 @@ function HeroStage({ slides }) {
   const [active, setActive] = useState(0);
   const [dir, setDir] = useState(1);
   const [paused, setPaused] = useState(false);
-  // Capas de color apiladas: la nueva se revela en círculo desde la pestaña pulsada.
+  // Capas de color: la nueva se revela en círculo desde la pestaña pulsada.
   const [layers, setLayers] = useState([{ key: 0, idx: 0, at: "50% 100%" }]);
 
   const panelRef = useRef(null);
@@ -201,10 +199,11 @@ function HeroStage({ slides }) {
   };
 
   const bigWord = slide.name.split(/\s+/)[0].toUpperCase();
-  const bigVw = Math.min(21, 92 / (bigWord.length * 0.7)); // móvil: ancho completo
+  const bigVw = Math.min(21, 92 / (bigWord.length * 0.7)); // cel: ancho completo
   const bigMax = Math.floor(1400 / (bigWord.length * 0.7));
   const bigVwLg = Math.min(14, 50 / (bigWord.length * 0.7)); // desktop: solo la mitad izquierda
   const bigMaxLg = Math.floor(900 / (bigWord.length * 0.7));
+  const arcSize = Math.min(13, 70 / (bigWord.length * 0.7));
 
   return (
     <section
@@ -221,7 +220,7 @@ function HeroStage({ slides }) {
         ref={panelRef}
         className="relative isolate flex min-h-[780px] flex-col overflow-hidden rounded-[2rem] text-white lg:h-[calc(100svh-88px-1.25rem)] lg:max-h-[940px] lg:min-h-[680px]"
       >
-        {/* ── Fondo: shader de degradado con grano; el nuevo se revela en círculo ── */}
+        {/*  Fondo: shader de degradado con grano; el nuevo se revela en círculo */}
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-black">
           {layers.map((l) => {
             const p = STYLES[l.idx % STYLES.length];
@@ -265,7 +264,7 @@ function HeroStage({ slides }) {
           <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         </div>
 
-        {/* ── Fila superior: vendidos · siguiente producto ── */}
+        {/*  Fila superior: vendidos · siguiente producto  */}
         <div className="relative z-30 flex items-start justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-7 lg:px-12 lg:pt-9">
           <div className="min-h-[3.5rem]">
             {slide.sold > 0 && (
@@ -299,11 +298,11 @@ function HeroStage({ slides }) {
           )}
         </div>
 
-        {/* ── Escenario: palabra gigante · aro · producto ── */}
+        {/*  Escenario: palabra gigante · aro · producto  */}
         <div className="relative z-10 min-h-[280px] flex-1 [contain:layout]">
           <motion.div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 grid place-items-center lg:place-items-center lg:justify-items-start lg:pl-12"
+            className="pointer-events-none absolute inset-0 hidden place-items-center lg:grid lg:place-items-center lg:justify-items-start lg:pl-12"
             style={{ x: wordX }}
           >
             <AnimatePresence mode="wait">
@@ -334,7 +333,7 @@ function HeroStage({ slides }) {
               <motion.svg
                 key={slide.id}
                 viewBox="0 0 100 100"
-                className="aspect-square h-[112%] max-w-none shrink-0 -rotate-90 overflow-visible"
+                className="aspect-square h-[88%] max-w-none shrink-0 -rotate-90 overflow-visible lg:h-[112%]"
                 exit={{ opacity: 0, transition: { duration: 0.2 } }}
               >
                 <motion.circle
@@ -350,6 +349,29 @@ function HeroStage({ slides }) {
                 />
               </motion.svg>
             </AnimatePresence>
+          </div>
+
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center lg:hidden">
+            <svg viewBox="0 0 100 100" className="aspect-square h-[88%] max-w-none shrink-0 overflow-visible">
+              <path id="hero-arc" d="M 0 50 A 50 50 0 0 1 100 50" fill="none" />
+              <AnimatePresence mode="wait">
+                <motion.text
+                  key={slide.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.4 }}
+                  fill="white"
+                  fontWeight="900"
+                  fontSize={arcSize}
+                  textAnchor="middle"
+                >
+                  <textPath href="#hero-arc" startOffset="50%">
+                    {bigWord}
+                  </textPath>
+                </motion.text>
+              </AnimatePresence>
+            </svg>
           </div>
 
           {/* Producto con parallax + tilt 3D */}
@@ -368,7 +390,7 @@ function HeroStage({ slides }) {
                 className="absolute inset-0 flex items-center justify-center"
               >
                 <motion.div
-                  className="relative aspect-square h-[104%] max-w-full shrink-0 will-change-transform"
+                  className="relative aspect-square h-[84%] max-w-full shrink-0 will-change-transform lg:h-[104%]"
                   animate={reduce ? undefined : { y: [0, -14, 0] }}
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 >
@@ -385,7 +407,7 @@ function HeroStage({ slides }) {
           </motion.div>
         </div>
 
-        {/* ── Texto + acciones ── */}
+        {/*  Texto + acciones  */}
         <div className="relative z-30 grid grid-cols-1 items-end gap-6 px-5 pb-5 sm:px-8 md:grid-cols-[1fr_auto] lg:px-12 lg:pb-7">
           <AnimatePresence mode="wait">
             <motion.div
@@ -433,7 +455,7 @@ function HeroStage({ slides }) {
           </div>
         </div>
 
-        {/* ── Barra de pestañas (pill blanco que se desliza + progreso del autoplay) ── */}
+        {/*  Barra de pestañas (pill blanco que se desliza + progreso del autoplay)  */}
         <div
           role="tablist"
           aria-label="Productos más vendidos"

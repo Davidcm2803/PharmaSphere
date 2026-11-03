@@ -70,24 +70,25 @@ const bottomItem = (active = false) =>
 
 // Menú de usuario estilo Microsoft: avatar que abre una tarjeta
 function UserMenu({ user, isStaff, onLogout }) {
-  const [open, setOpen] = useState(false);
+  const [openPath, setOpenPath] = useState(null);
   const ref = useRef(null);
   const { pathname } = useLocation();
 
-  // Cerrar al navegar
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  const open = openPath === pathname;
+  const setOpen = (value) => {
+    const next = typeof value === "function" ? value(open) : value;
+    setOpenPath(next ? pathname : null);
+  };
 
   // Cerrar con clic fuera o con Escape
   useEffect(() => {
     if (!open) return;
 
     const handleClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) setOpenPath(null);
     };
     const handleKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setOpenPath(null);
     };
 
     document.addEventListener("mousedown", handleClick);
@@ -114,9 +115,9 @@ function UserMenu({ user, isStaff, onLogout }) {
 
       {open && (
         <div
-  role="menu"
-  className="absolute left-1/2 top-full z-50 mt-3 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md border border-brand-border bg-brand-card p-5 shadow-xl"
->
+          role="menu"
+          className="absolute left-1/2 top-full z-50 mt-3 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md border border-brand-border bg-brand-card p-5 shadow-xl"
+        >
           {/* Fila superior: marca a la izquierda, cerrar sesión a la derecha */}
           <div className="mb-4 flex items-center justify-between">
             <span className="flex items-center gap-2 text-sm font-semibold text-brand-foreground">
