@@ -16,7 +16,7 @@ import { assetUrl } from "../../config/api";
 import { cn } from "../../lib/utils";
 
 const SLIDE_COUNT = 4;
-const AUTOPLAY_SECONDS = 7;
+const AUTOPLAY_SECONDS = 5;
 const WIPE_SECONDS = 1.1;
 const EASE = [0.22, 1, 0.36, 1];
 

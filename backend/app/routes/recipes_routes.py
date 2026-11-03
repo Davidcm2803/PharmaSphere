@@ -17,9 +17,22 @@ def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receta no encontrada")
 
 
+# Excepción del servicio -> HTTPException (400 dato inválido, 409 receta usada)
+def _http_error(exc: Exception) -> HTTPException:
+    codigo = (
+        status.HTTP_409_CONFLICT
+        if isinstance(exc, recipe_service.RecipeLockedError)
+        else status.HTTP_400_BAD_REQUEST
+    )
+    return HTTPException(status_code=codigo, detail=str(exc))
+
+
+# Panel y POS: ?cedula + ?id_producto + ?estado=vigente sirve para validar una receta
+# en el mostrador. ?solo_vigentes=true deja solo las recetas utilizables hoy
 @router.get("", response_model=Page[RecipeOut])
 def list_recipes(
     id_cliente: Optional[int] = Query(None, ge=1),
+    cedula: Optional[str] = Query(None, max_length=50, description="Cédula exacta del cliente"),
     id_producto: Optional[int] = Query(None, ge=1),
     estado: Optional[RecipeState] = None,
     solo_vigentes: bool = Query(False, description="Solo recetas utilizables hoy"),
@@ -30,6 +43,7 @@ def list_recipes(
     items, total = recipe_service.list_recipes(
         db,
         id_cliente=id_cliente,
+        cedula=cedula,
         id_producto=id_producto,
         estado=estado,
         solo_vigentes=solo_vigentes,
@@ -47,7 +61,7 @@ def create_recipe(
     try:
         receta = recipe_service.create_recipe(db, data)
     except recipe_service.InvalidRecipeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise _http_error(exc) from None
     return recipe_service.get_recipe_out(db, receta.id_receta)
 
 
@@ -75,10 +89,8 @@ def update_recipe(
         raise _not_found()
     try:
         recipe_service.update_recipe(db, receta, data)
-    except recipe_service.RecipeLockedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    except recipe_service.InvalidRecipeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except (recipe_service.InvalidRecipeError, recipe_service.RecipeLockedError) as exc:
+        raise _http_error(exc) from None
     return recipe_service.get_recipe_out(db, id_receta)
 
 
@@ -94,5 +106,5 @@ def delete_recipe(
     try:
         recipe_service.delete_recipe(db, receta)
     except recipe_service.RecipeLockedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise _http_error(exc) from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)

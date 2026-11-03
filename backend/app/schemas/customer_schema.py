@@ -1,9 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.product_schema import Money
+
+# Correo simple (sin depender de email-validator): algo@dominio.ext
+_CORREO = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
 def _strip(value):
@@ -16,20 +19,19 @@ def _blank_to_none(value):
 
 
 def _correo(value):
+    """Vacío -> None y siempre en minúsculas ("ANA@Mail.com" y "ana@mail.com" son el mismo)."""
     value = _blank_to_none(value)
     if isinstance(value, str):
-        if len(value) > 150:
-            raise ValueError("El correo no puede superar 150 caracteres")
         return value.lower()
     return value
 
 
-# Campos que se envian al crear un cliente (en mostrador o desde el panel)
+# Campos que se envían al crear un cliente (mostrador, POS o panel)
 class CustomerCreate(BaseModel):
     nombre: str = Field(min_length=2, max_length=150)
     cedula: Optional[str] = Field(default=None, max_length=50)
     telefono: Optional[str] = Field(default=None, max_length=50)
-    correo: Optional[EmailStr] = None
+    correo: Optional[str] = Field(default=None, max_length=150, pattern=_CORREO)
     direccion: Optional[str] = Field(default=None, max_length=255)
 
     _strip_nombre = field_validator("nombre", mode="before")(_strip)
@@ -37,12 +39,12 @@ class CustomerCreate(BaseModel):
     _norm_correo = field_validator("correo", mode="before")(_correo)
 
 
-# Todos los campos son opcionales: solo se cambia lo que se envia
+# Todo opcional: solo se cambia lo que se envía. En campos con texto, "" equivale a null
 class CustomerUpdate(BaseModel):
     nombre: Optional[str] = Field(default=None, min_length=2, max_length=150)
     cedula: Optional[str] = Field(default=None, max_length=50)
     telefono: Optional[str] = Field(default=None, max_length=50)
-    correo: Optional[EmailStr] = None
+    correo: Optional[str] = Field(default=None, max_length=150, pattern=_CORREO)
     direccion: Optional[str] = Field(default=None, max_length=255)
 
     _blank_texts = field_validator(

@@ -19,6 +19,7 @@ from app.routes import (
     inventory_routes,
     products_routes,
     purchase_routes,
+    recipes_routes,
     reports_routes,
     sales_routes,
     suppliers_routes,

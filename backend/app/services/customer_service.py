@@ -15,16 +15,20 @@ from app.schemas.customer_schema import CustomerCreate, CustomerUpdate
 from app.utils.pagination import PageParams, paginate
 from app.utils.sql import escape_like
 
-# Campos que aceptan NULL: si se mandan como null se limpian
+# Campos que aceptan NULL: si se mandan como null se limpian. El resto se ignora
 _NULLABLE = {"cedula", "telefono", "correo", "direccion"}
 
 
-class DuplicateCustomerError(Exception):
-    pass
+class CustomerConflictError(Exception):
+    """Cédula o correo ya usados por otro cliente. La ruta la responde con 409."""
+
+
+# Nombre alternativo que usa el otro código: es la misma excepción
+DuplicateCustomerError = CustomerConflictError
 
 
 class CustomerInUseError(Exception):
-    pass
+    """El cliente tiene ventas, recetas o cuenta de usuario. La ruta la responde con 409."""
 
 
 def list_customers(
@@ -36,7 +40,7 @@ def list_customers(
 ) -> Tuple[List[Cliente], int]:
     stmt = select(Cliente)
     if cedula and cedula.strip():
-        # Busqueda exacta por cedula (la usa el mostrador)
+        # Búsqueda exacta por cédula (la usa el mostrador)
         stmt = stmt.where(Cliente.cedula == cedula.strip())
     if q and q.strip():
         patron = f"%{escape_like(q.strip())}%"
@@ -57,58 +61,73 @@ def get_customer(db: Session, id_cliente: int) -> Optional[Cliente]:
     return db.get(Cliente, id_cliente)
 
 
-def _check_duplicates(
+def _check_unique(
     db: Session,
     *,
     cedula: Optional[str],
     correo: Optional[str],
-    excluir_id: Optional[int] = None,
+    exclude_id: Optional[int] = None,
 ) -> None:
     if cedula:
         stmt = select(Cliente.id_cliente).where(Cliente.cedula == cedula)
-        if excluir_id is not None:
-            stmt = stmt.where(Cliente.id_cliente != excluir_id)
+        if exclude_id is not None:
+            stmt = stmt.where(Cliente.id_cliente != exclude_id)
         if db.scalars(stmt).first() is not None:
-            raise DuplicateCustomerError("Ya existe un cliente con esa cédula")
+            raise CustomerConflictError("Ya existe un cliente con esa cédula")
     if correo:
         stmt = select(Cliente.id_cliente).where(func.lower(Cliente.correo) == correo.lower())
-        if excluir_id is not None:
-            stmt = stmt.where(Cliente.id_cliente != excluir_id)
+        if exclude_id is not None:
+            stmt = stmt.where(Cliente.id_cliente != exclude_id)
         if db.scalars(stmt).first() is not None:
-            raise DuplicateCustomerError("Ya existe un cliente con ese correo")
+            raise CustomerConflictError("Ya existe un cliente con ese correo")
+
+
+def _tiene_cuenta(db: Session, id_cliente: int) -> bool:
+    return bool(db.scalar(select(exists().where(Usuario.id_cliente == id_cliente))))
 
 
 def create_customer(db: Session, data: CustomerCreate) -> Cliente:
-    _check_duplicates(db, cedula=data.cedula, correo=data.correo)
+    _check_unique(db, cedula=data.cedula, correo=data.correo)
     cliente = Cliente(**data.model_dump())
     db.add(cliente)
     try:
         db.commit()
     except IntegrityError:
-        # Dos peticiones a la vez pudieron pasar la revision anterior
+        # Dos peticiones a la vez pudieron pasar la revisión anterior
         db.rollback()
-        raise DuplicateCustomerError("Ya existe un cliente con esa cédula o correo")
+        raise CustomerConflictError("Ya existe un cliente con esa cédula o correo") from None
     db.refresh(cliente)
     return cliente
 
 
 def update_customer(db: Session, cliente: Cliente, data: CustomerUpdate) -> Cliente:
-    changes = data.model_dump(exclude_unset=True)
-    _check_duplicates(
+    changes = {
+        field: value
+        for field, value in data.model_dump(exclude_unset=True).items()
+        if not (value is None and field not in _NULLABLE)
+    }
+    # El correo de un cliente con cuenta es el de su usuario: no se cambia desde aquí
+    if (
+        "correo" in changes
+        and changes["correo"] != cliente.correo
+        and _tiene_cuenta(db, cliente.id_cliente)
+    ):
+        raise CustomerConflictError(
+            "El correo pertenece a una cuenta de usuario y no se puede cambiar aquí"
+        )
+    _check_unique(
         db,
-        cedula=changes.get("cedula"),
-        correo=changes.get("correo"),
-        excluir_id=cliente.id_cliente,
+        cedula=changes.get("cedula") if changes.get("cedula") != cliente.cedula else None,
+        correo=changes.get("correo") if changes.get("correo") != cliente.correo else None,
+        exclude_id=cliente.id_cliente,
     )
     for field, value in changes.items():
-        if value is None and field not in _NULLABLE:
-            continue
         setattr(cliente, field, value)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise DuplicateCustomerError("Ya existe un cliente con esa cédula o correo")
+        raise CustomerConflictError("Ya existe un cliente con esa cédula o correo") from None
     db.refresh(cliente)
     return cliente
 
@@ -118,8 +137,7 @@ def delete_customer(db: Session, cliente: Cliente) -> None:
     Se rechaza si el cliente tiene ventas, recetas o una cuenta de usuario."""
     tiene_ventas = db.scalar(select(exists().where(Venta.id_cliente == cliente.id_cliente)))
     tiene_recetas = db.scalar(select(exists().where(Receta.id_cliente == cliente.id_cliente)))
-    tiene_usuario = db.scalar(select(exists().where(Usuario.id_cliente == cliente.id_cliente)))
-    if tiene_ventas or tiene_recetas or tiene_usuario:
+    if tiene_ventas or tiene_recetas or _tiene_cuenta(db, cliente.id_cliente):
         raise CustomerInUseError(
             "No se puede eliminar: el cliente tiene ventas, recetas o una cuenta de usuario asociadas"
         )
@@ -128,14 +146,16 @@ def delete_customer(db: Session, cliente: Cliente) -> None:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise CustomerInUseError("No se puede eliminar: el cliente tiene registros asociados")
+        raise CustomerInUseError(
+            "No se puede eliminar: el cliente tiene registros asociados"
+        ) from None
 
 
 def list_purchase_history(
     db: Session, id_cliente: int, params: PageParams
 ) -> Tuple[List[dict], int]:
-    """Compras del cliente (mas recientes primero), con sus productos.
-    Usa 2 consultas en total (ventas + detalles) sin importar cuantas ventas haya."""
+    """Compras del cliente (más recientes primero), con sus productos.
+    Usa 2 consultas en total (ventas + detalles) sin importar cuántas ventas haya."""
     stmt = (
         select(Venta, Sucursal.nombre)
         .join(Sucursal, Sucursal.id_sucursal == Venta.id_sucursal)

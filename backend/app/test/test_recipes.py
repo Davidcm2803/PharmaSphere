@@ -44,6 +44,12 @@ def empleado(client, admin):
 
 
 @pytest.fixture()
+def token_cliente(client):
+    """Token de un usuario con rol cliente (para probar permisos)."""
+    return registrar_y_loguear(client).json()["access_token"]
+
+
+@pytest.fixture()
 def datos(client, admin):
     """Un cliente, un producto con receta y uno sin receta."""
     cliente = client.post(
@@ -83,103 +89,19 @@ def receta_valida(datos, **extra):
     }
 
 
-# Permisos
-def test_listar_sin_login_da_401(client):
-    assert client.get("/api/recipes").status_code == 401
+def crear(client, token, datos, **extra):
+    """Crea una receta del cliente y producto de `datos`; `extra` pisa los campos."""
+    body = {"id_cliente": datos["id_cliente"], "id_producto": datos["con_receta"], **extra}
+    return crear_receta(client, token, **body)
 
 
-def test_cliente_no_puede_ver_recetas(client):
-    token = registrar_y_loguear(client).json()["access_token"]
-    assert client.get("/api/recipes", headers=auth_header(token)).status_code == 403
+def forzar_estado(id_receta, estado):
+    db = TestingSessionLocal()
+    db.get(Receta, id_receta).estado = estado
+    db.commit()
+    db.close()
 
 
-# CRUD
-def test_crear_receta(client, admin, datos):
-    resp = crear_receta(client, admin, **receta_valida(datos))
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["estado"] == "vigente"
-    assert body["cliente_nombre"] == "Ana Mora"
-    assert body["producto_nombre"] == "Amoxicilina 500mg"
-    assert body["cantidad"] == 2
-    assert body["fecha"] == HOY.isoformat()
-    assert body["id_venta"] is None
-
-
-def test_empleado_puede_crear_receta(client, empleado, datos):
-    assert crear_receta(client, empleado, **receta_valida(datos)).status_code == 201
-
-
-def test_crear_receta_de_producto_sin_receta_da_400(client, admin, datos):
-    resp = crear_receta(client, admin, **receta_valida(datos, id_producto=datos["libre"]))
-    assert resp.status_code == 400
-
-
-def test_crear_receta_cliente_inexistente_da_400(client, admin, datos):
-    assert crear_receta(client, admin, **receta_valida(datos, id_cliente=9999)).status_code == 400
-
-
-def test_crear_receta_producto_inexistente_da_400(client, admin, datos):
-    assert crear_receta(client, admin, **receta_valida(datos, id_producto=9999)).status_code == 400
-
-
-def test_crear_receta_con_vigencia_anterior_a_la_fecha_da_400(client, admin, datos):
-    resp = crear_receta(
-        client, admin, **receta_valida(datos, fecha=HOY.isoformat(), vigencia_hasta=AYER.isoformat())
-    )
-    assert resp.status_code == 400
-
-
-def test_crear_receta_cantidad_cero_da_422(client, admin, datos):
-    assert crear_receta(client, admin, **receta_valida(datos, cantidad=0)).status_code == 422
-
-
-def test_obtener_receta(client, admin, datos):
-    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
-    resp = client.get(f"/api/recipes/{id_receta}", headers=auth_header(admin))
-    assert resp.status_code == 200
-    assert resp.json()["medico"] == "Dr. Salas"
-
-
-def test_obtener_inexistente_da_404(client, admin):
-    assert client.get("/api/recipes/9999", headers=auth_header(admin)).status_code == 404
-
-
-def test_actualizar_receta(client, admin, datos):
-    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
-    resp = client.put(
-        f"/api/recipes/{id_receta}",
-        json={"cantidad": 5, "medico": "Dra. Mena"},
-        headers=auth_header(admin),
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["cantidad"] == 5
-    assert body["medico"] == "Dra. Mena"
-
-
-def test_actualizar_vigencia_anterior_a_la_fecha_da_400(client, admin, datos):
-    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
-    resp = client.put(
-        f"/api/recipes/{id_receta}",
-        json={"vigencia_hasta": (HOY - timedelta(days=5)).isoformat()},
-        headers=auth_header(admin),
-    )
-    assert resp.status_code == 400
-
-
-def test_admin_elimina_receta(client, admin, datos):
-    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
-    assert client.delete(f"/api/recipes/{id_receta}", headers=auth_header(admin)).status_code == 204
-    assert client.get(f"/api/recipes/{id_receta}", headers=auth_header(admin)).status_code == 404
-
-
-def test_empleado_no_puede_eliminar_receta(client, admin, empleado, datos):
-    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
-    assert client.delete(f"/api/recipes/{id_receta}", headers=auth_header(empleado)).status_code == 403
-
-
-# Filtros y estado
 def insertar_receta(datos, **cols) -> int:
     """Inserta una receta directo en la BD (para fechas pasadas o estados especiales)."""
     db = TestingSessionLocal()
@@ -198,10 +120,128 @@ def insertar_receta(datos, **cols) -> int:
         db.close()
 
 
-def test_receta_pasada_de_fecha_se_muestra_vencida(client, admin, datos):
+def ids(resp):
+    return {r["id_receta"] for r in resp.json()["items"]}
+
+
+# Crear
+def test_empleado_crea_receta_vigente(client, empleado, datos):
+    resp = crear(
+        client, empleado, datos, medico="Dr. Pérez", cantidad=2,
+        vigencia_hasta=EN_UN_MES.isoformat(),
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["estado"] == "vigente"
+    assert body["cantidad"] == 2
+    assert body["fecha"] == HOY.isoformat()
+    assert body["cliente_nombre"] == "Ana Mora"
+    assert body["cliente_cedula"] == "1-1111-1111"
+    assert body["producto_nombre"] == "Amoxicilina 500mg"
+    assert body["id_venta"] is None
+
+
+def test_crear_receta_con_todos_los_campos(client, admin, datos):
+    resp = crear_receta(client, admin, **receta_valida(datos))
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["medico"] == "Dr. Salas"
+    assert body["vigencia_hasta"] == EN_UN_MES.isoformat()
+
+
+def test_crear_receta_con_cantidad_por_defecto_1(client, admin, datos):
+    assert crear(client, admin, datos).json()["cantidad"] == 1
+
+
+def test_crear_con_producto_sin_receta_devuelve_400(client, admin, datos):
+    resp = crear(client, admin, datos, id_producto=datos["libre"])
+    assert resp.status_code == 400
+    assert "no requiere receta" in resp.json()["message"]
+
+
+def test_crear_con_producto_inexistente_devuelve_400(client, admin, datos):
+    assert crear(client, admin, datos, id_producto=9999).status_code == 400
+
+
+def test_crear_con_producto_deshabilitado_devuelve_400(client, admin, datos):
+    client.delete(f"/api/products/{datos['con_receta']}", headers=auth_header(admin))
+    assert crear(client, admin, datos).status_code == 400
+
+
+def test_crear_con_cliente_inexistente_devuelve_400(client, admin, datos):
+    assert crear(client, admin, datos, id_cliente=9999).status_code == 400
+
+
+def test_crear_con_vigencia_anterior_a_la_fecha_devuelve_400(client, admin, datos):
+    resp = crear(client, admin, datos, vigencia_hasta=AYER.isoformat())
+    assert resp.status_code == 400
+
+
+def test_crear_con_fecha_explicita_y_vigencia_anterior_devuelve_400(client, admin, datos):
+    resp = crear(client, admin, datos, fecha=HOY.isoformat(), vigencia_hasta=AYER.isoformat())
+    assert resp.status_code == 400
+
+
+def test_crear_con_cantidad_cero_devuelve_422(client, admin, datos):
+    assert crear(client, admin, datos, cantidad=0).status_code == 422
+
+
+def test_crear_con_archivo_invalido_devuelve_422(client, admin, datos):
+    assert crear(client, admin, datos, archivo_url="C:/receta.pdf").status_code == 422
+
+
+def test_crear_con_archivo_valido(client, admin, datos):
+    resp = crear(client, admin, datos, archivo_url="/static/recetas/r1.pdf")
+    assert resp.status_code == 201
+    assert resp.json()["archivo_url"] == "/static/recetas/r1.pdf"
+
+
+def test_crear_sin_token_devuelve_401(client, datos):
+    assert client.post("/api/recipes", json={"id_cliente": 1, "id_producto": 1}).status_code == 401
+
+
+def test_crear_como_cliente_devuelve_403(client, datos, token_cliente):
+    assert crear(client, token_cliente, datos).status_code == 403
+
+
+# Listar y filtrar
+@pytest.fixture()
+def recetas(client, admin, datos):
+    vigente = crear(client, admin, datos, vigencia_hasta=EN_UN_MES.isoformat()).json()
+    vencida = crear(
+        client,
+        admin,
+        datos,
+        fecha=(HOY - timedelta(days=20)).isoformat(),
+        vigencia_hasta=(HOY - timedelta(days=5)).isoformat(),
+    ).json()
+    usada = crear(client, admin, datos).json()
+    forzar_estado(usada["id_receta"], "usada")
+    return {"vigente": vigente, "vencida": vencida, "usada": usada}
+
+
+def test_receta_vencida_por_fecha_se_muestra_vencida(client, admin, recetas):
+    resp = client.get(f"/api/recipes/{recetas['vencida']['id_receta']}", headers=auth_header(admin))
+    assert resp.json()["estado"] == "vencida"
+
+
+def test_receta_pasada_de_fecha_insertada_en_bd_se_muestra_vencida(client, admin, datos):
     id_receta = insertar_receta(datos, vigencia_hasta=AYER, estado="vigente")
     resp = client.get(f"/api/recipes/{id_receta}", headers=auth_header(admin))
     assert resp.json()["estado"] == "vencida"
+
+
+def test_listar_recetas(client, empleado, recetas):
+    resp = client.get("/api/recipes", headers=auth_header(empleado))
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 3
+
+
+def test_filtrar_por_estado_con_recetas_creadas_por_api(client, admin, recetas):
+    h = auth_header(admin)
+    assert ids(client.get("/api/recipes?estado=vigente", headers=h)) == {recetas["vigente"]["id_receta"]}
+    assert ids(client.get("/api/recipes?estado=vencida", headers=h)) == {recetas["vencida"]["id_receta"]}
+    assert ids(client.get("/api/recipes?estado=usada", headers=h)) == {recetas["usada"]["id_receta"]}
 
 
 def test_filtrar_por_estado(client, admin, datos):
@@ -209,13 +249,13 @@ def test_filtrar_por_estado(client, admin, datos):
     vencida = insertar_receta(datos, vigencia_hasta=AYER, estado="vigente")
     usada = insertar_receta(datos, vigencia_hasta=EN_UN_MES, estado="usada")
 
-    def ids(estado):
+    def ids_por_estado(estado):
         resp = client.get(f"/api/recipes?estado={estado}", headers=auth_header(admin))
         return [r["id_receta"] for r in resp.json()["items"]]
 
-    assert ids("vigente") == [vigente]
-    assert ids("vencida") == [vencida]
-    assert ids("usada") == [usada]
+    assert ids_por_estado("vigente") == [vigente]
+    assert ids_por_estado("vencida") == [vencida]
+    assert ids_por_estado("usada") == [usada]
 
 
 def test_solo_vigentes_excluye_vencidas_y_usadas(client, admin, datos):
@@ -226,7 +266,16 @@ def test_solo_vigentes_excluye_vencidas_y_usadas(client, admin, datos):
     assert [r["id_receta"] for r in resp.json()["items"]] == [vigente]
 
 
-def test_filtrar_por_cliente(client, admin, datos):
+def test_filtrar_por_cliente_cedula_y_producto(client, admin, datos, recetas):
+    h = auth_header(admin)
+    assert client.get(f"/api/recipes?id_cliente={datos['id_cliente']}", headers=h).json()["total"] == 3
+    assert client.get("/api/recipes?cedula=1-1111-1111", headers=h).json()["total"] == 3
+    assert client.get("/api/recipes?cedula=9-9999", headers=h).json()["total"] == 0
+    assert client.get(f"/api/recipes?id_producto={datos['con_receta']}", headers=h).json()["total"] == 3
+    assert client.get(f"/api/recipes?id_producto={datos['libre']}", headers=h).json()["total"] == 0
+
+
+def test_filtrar_por_cliente_no_mezcla_clientes(client, admin, datos):
     otro = client.post(
         "/api/customers", json={"nombre": "Luis Rojas"}, headers=auth_header(admin)
     ).json()["id_cliente"]
@@ -236,11 +285,143 @@ def test_filtrar_por_cliente(client, admin, datos):
     assert [r["id_receta"] for r in resp.json()["items"]] == [propia]
 
 
-def test_estado_invalido_da_422(client, admin):
-    assert client.get("/api/recipes?estado=cualquiera", headers=auth_header(admin)).status_code == 422
+def test_consulta_del_pos_cedula_producto_vigente(client, empleado, datos, recetas):
+    resp = client.get(
+        f"/api/recipes?cedula=1-1111-1111&id_producto={datos['con_receta']}&estado=vigente",
+        headers=auth_header(empleado),
+    )
+    assert ids(resp) == {recetas["vigente"]["id_receta"]}
 
 
-# Validacion de receta al vender (funciones que usa el servicio de ventas)
+def test_listar_recetas_pagina(client, admin, recetas):
+    body = client.get("/api/recipes?page_size=2", headers=auth_header(admin)).json()
+    assert (len(body["items"]), body["total"], body["pages"]) == (2, 3, 2)
+
+
+def test_filtro_de_estado_invalido_devuelve_422(client, admin):
+    assert client.get("/api/recipes?estado=otro", headers=auth_header(admin)).status_code == 422
+
+
+def test_listar_sin_token_devuelve_401(client):
+    assert client.get("/api/recipes").status_code == 401
+
+
+def test_listar_como_cliente_devuelve_403(client, datos, token_cliente):
+    assert client.get("/api/recipes", headers=auth_header(token_cliente)).status_code == 403
+
+
+# Detalle
+def test_obtener_receta(client, admin, datos):
+    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
+    resp = client.get(f"/api/recipes/{id_receta}", headers=auth_header(admin))
+    assert resp.status_code == 200
+    assert resp.json()["medico"] == "Dr. Salas"
+
+
+def test_detalle_inexistente_devuelve_404(client, admin):
+    resp = client.get("/api/recipes/999", headers=auth_header(admin))
+    assert resp.status_code == 404
+    assert resp.json()["success"] is False
+
+
+# Editar
+def test_editar_receta(client, empleado, datos):
+    id_receta = crear(client, empleado, datos, medico="Dr. Pérez").json()["id_receta"]
+    resp = client.put(
+        f"/api/recipes/{id_receta}",
+        json={"cantidad": 3, "medico": "Dra. Soto"},
+        headers=auth_header(empleado),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["cantidad"] == 3
+    assert resp.json()["medico"] == "Dra. Soto"
+
+
+def test_editar_puede_limpiar_campos_opcionales(client, admin, datos):
+    id_receta = crear(client, admin, datos, medico="Dr. Pérez").json()["id_receta"]
+    resp = client.put(f"/api/recipes/{id_receta}", json={"medico": None}, headers=auth_header(admin))
+    assert resp.json()["medico"] is None
+
+
+def test_editar_no_borra_cantidad_con_null(client, admin, datos):
+    id_receta = crear(client, admin, datos, cantidad=4).json()["id_receta"]
+    resp = client.put(f"/api/recipes/{id_receta}", json={"cantidad": None}, headers=auth_header(admin))
+    assert resp.json()["cantidad"] == 4
+
+
+def test_marcar_receta_como_vencida(client, admin, datos):
+    id_receta = crear(client, admin, datos).json()["id_receta"]
+    resp = client.put(f"/api/recipes/{id_receta}", json={"estado": "vencida"}, headers=auth_header(admin))
+    assert resp.json()["estado"] == "vencida"
+
+
+def test_renovar_vigencia_de_receta_vencida_por_fecha(client, admin, recetas):
+    id_receta = recetas["vencida"]["id_receta"]
+    nueva = (HOY + timedelta(days=15)).isoformat()
+    resp = client.put(f"/api/recipes/{id_receta}", json={"vigencia_hasta": nueva}, headers=auth_header(admin))
+    assert resp.status_code == 200
+    assert resp.json()["estado"] == "vigente"
+
+
+def test_no_se_puede_poner_estado_usada_a_mano(client, admin, datos):
+    id_receta = crear(client, admin, datos).json()["id_receta"]
+    resp = client.put(f"/api/recipes/{id_receta}", json={"estado": "usada"}, headers=auth_header(admin))
+    assert resp.status_code == 422
+
+
+def test_editar_receta_usada_devuelve_409(client, admin, recetas):
+    resp = client.put(
+        f"/api/recipes/{recetas['usada']['id_receta']}", json={"cantidad": 9}, headers=auth_header(admin)
+    )
+    assert resp.status_code == 409
+
+
+def test_editar_con_vigencia_anterior_a_la_fecha_devuelve_400(client, admin, datos):
+    id_receta = crear(client, admin, datos).json()["id_receta"]
+    resp = client.put(
+        f"/api/recipes/{id_receta}",
+        json={"vigencia_hasta": (HOY - timedelta(days=3)).isoformat()},
+        headers=auth_header(admin),
+    )
+    assert resp.status_code == 400
+
+
+def test_editar_inexistente_devuelve_404(client, admin):
+    assert client.put("/api/recipes/999", json={"cantidad": 2}, headers=auth_header(admin)).status_code == 404
+
+
+def test_editar_como_cliente_devuelve_403(client, admin, datos, token_cliente):
+    id_receta = crear(client, admin, datos).json()["id_receta"]
+    resp = client.put(f"/api/recipes/{id_receta}", json={"cantidad": 2}, headers=auth_header(token_cliente))
+    assert resp.status_code == 403
+
+
+def test_editar_sin_token_devuelve_401(client):
+    assert client.put("/api/recipes/1", json={"cantidad": 2}).status_code == 401
+
+
+# Eliminar
+def test_admin_elimina_receta(client, admin, datos):
+    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
+    assert client.delete(f"/api/recipes/{id_receta}", headers=auth_header(admin)).status_code == 204
+    assert client.get(f"/api/recipes/{id_receta}", headers=auth_header(admin)).status_code == 404
+
+
+def test_empleado_no_puede_eliminar_receta(client, admin, empleado, datos):
+    id_receta = crear_receta(client, admin, **receta_valida(datos)).json()["id_receta"]
+    assert client.delete(f"/api/recipes/{id_receta}", headers=auth_header(empleado)).status_code == 403
+
+
+def test_no_se_elimina_receta_usada(client, admin, recetas):
+    resp = client.delete(f"/api/recipes/{recetas['usada']['id_receta']}", headers=auth_header(admin))
+    assert resp.status_code == 409
+
+
+def test_eliminar_inexistente_da_404(client, admin):
+    assert client.delete("/api/recipes/9999", headers=auth_header(admin)).status_code == 404
+
+
+# Validación de receta al vender (funciones que usa el servicio de ventas)
 def validar(datos, *, id_cliente="__cliente__", id_producto=None, cantidad=1, hoy: Optional[date] = None):
     db = TestingSessionLocal()
     try:
@@ -303,7 +484,7 @@ def test_venta_con_receta_de_otro_cliente_es_rechazada(client, admin, datos):
 
 def test_venta_con_receta_de_otro_producto_es_rechazada(client, datos):
     insertar_receta(datos, vigencia_hasta=EN_UN_MES)
-    # La receta es de la amoxicilina; se intenta comprar otro producto que tambien pide receta
+    # La receta es de la amoxicilina; se intenta comprar otro producto que también pide receta
     db = TestingSessionLocal()
     otro = Producto(nombre="Diazepam 5mg", precio=2000, requiere_receta=True)
     db.add(otro)
