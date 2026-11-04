@@ -1,16 +1,26 @@
+from datetime import date, timedelta
 from typing import List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+import app.db.base  # noqa: F401
 from app.models.branch_model import Sucursal
 from app.models.inventory_model import Inventario
+from app.models.lot_model import Lote
 from app.models.movement_model import MovimientoInventario
 from app.models.product_model import Producto
 from app.schemas.inventory_schema import StockAdjustIn, StockTransferIn
 from app.utils.sql import escape_like
+
+
+class InventoryError(Exception):
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(detail)
 
 
 # helpers
@@ -92,9 +102,9 @@ def list_inventory(
         for inv, p_nombre, categoria, s_nombre in db.execute(stmt).all()
     ]
 
-#Stock de un producto en CADA sucursal activa 
-def get_product_stock(db: Session, id_producto: int) -> List[dict]:
 
+# Stock de un producto en CADA sucursal activa
+def get_product_stock(db: Session, id_producto: int) -> List[dict]:
     producto = _product(db, id_producto)
     stmt = (
         select(Sucursal, Inventario)
@@ -121,6 +131,24 @@ def get_product_stock(db: Session, id_producto: int) -> List[dict]:
     ]
 
 
+# stock total por producto (suma de todas las sucursales)
+def list_stock_totals(db: Session, *, limite: int = 10, ascendente: bool = False) -> List[dict]:
+    total = func.coalesce(func.sum(Inventario.cantidad), 0).label("total")
+    stmt = (
+        select(Producto.nombre, Producto.categoria, total)
+        .outerjoin(Inventario, Inventario.id_producto == Producto.id_producto)
+        .where(Producto.activo.is_(True))
+        .group_by(Producto.id_producto, Producto.nombre, Producto.categoria)
+        .order_by(total.asc() if ascendente else total.desc(), func.lower(Producto.nombre))
+        .limit(limite)
+    )
+    return [
+        {"producto": nombre, "categoria": categoria, "stock_total": int(cantidad)}
+        for nombre, categoria, cantidad in db.execute(stmt).all()
+    ]
+
+
+# ajuste manual
 def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
     branch = _active_branch(db, data.id_sucursal)
     producto = _product(db, data.id_producto)
@@ -184,22 +212,7 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
         id_sucursal=branch.id_sucursal,
         sucursal_nombre=branch.nombre,
     )
-    
-# stock total por producto (suma de todas las sucursales)
-def list_stock_totals(db: Session, *, limite: int = 10, ascendente: bool = False) -> List[dict]:
-    total = func.coalesce(func.sum(Inventario.cantidad), 0).label("total")
-    stmt = (
-        select(Producto.nombre, Producto.categoria, total)
-        .outerjoin(Inventario, Inventario.id_producto == Producto.id_producto)
-        .where(Producto.activo.is_(True))
-        .group_by(Producto.id_producto, Producto.nombre, Producto.categoria)
-        .order_by(total.asc() if ascendente else total.desc(), func.lower(Producto.nombre))
-        .limit(limite)
-    )
-    return [
-        {"producto": nombre, "categoria": categoria, "stock_total": int(cantidad)}
-        for nombre, categoria, cantidad in db.execute(stmt).all()
-    ]
+
 
 # transferencia
 def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
@@ -263,7 +276,7 @@ def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
                 ),
             ]
         )
-        db.commit()  # unico commit: si algo fallo antes, no se guardó nada
+        db.commit()  # unico commit: si algo falló antes, no se guardó nada
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Conflicto al transferir el stock, intenta de nuevo")
@@ -282,3 +295,88 @@ def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
         "stock_origen": inv_origen.cantidad,
         "stock_destino": inv_destino.cantidad,
     }
+
+
+# FEFO (first expired, first out)
+def descontar_fefo(
+    db: Session,
+    id_producto: int,
+    id_sucursal: int,
+    cantidad: int,
+    *,
+    id_venta: int | None = None,
+    id_usuario: int | None = None,
+) -> list[tuple[Lote, int]]:
+    """Descuenta de los lotes vigentes que vencen primero. No hace commit: lo hace el llamador."""
+    if cantidad <= 0:
+        raise InventoryError(422, "La cantidad debe ser mayor a 0")
+
+    lotes = db.scalars(
+        select(Lote)
+        .where(
+            Lote.id_producto == id_producto,
+            Lote.id_sucursal == id_sucursal,
+            Lote.cantidad > 0,
+            Lote.fecha_vencimiento >= date.today(),
+        )
+        .order_by(Lote.fecha_vencimiento, Lote.id_lote)
+        .with_for_update()
+    ).all()
+
+    vendible = sum(l.cantidad for l in lotes)
+    if vendible < cantidad:
+        raise InventoryError(409, f"Stock vendible insuficiente: hay {vendible}, se pidieron {cantidad}")
+
+    inv = db.scalar(
+        select(Inventario)
+        .where(Inventario.id_producto == id_producto, Inventario.id_sucursal == id_sucursal)
+        .with_for_update()
+    )
+    if inv is None or inv.cantidad < cantidad:
+        raise InventoryError(409, "Inventario insuficiente")
+
+    restante, consumos = cantidad, []
+    for lote in lotes:
+        if restante == 0:
+            break
+        tomar = min(lote.cantidad, restante)
+        lote.cantidad -= tomar
+        db.add(
+            MovimientoInventario(
+                id_producto=id_producto,
+                id_sucursal=id_sucursal,
+                id_lote=lote.id_lote,
+                tipo="venta",
+                cantidad=-tomar,
+                motivo="Venta (FEFO)",
+                id_usuario=id_usuario,
+                id_venta=id_venta,
+            )
+        )
+        consumos.append((lote, tomar))
+        restante -= tomar
+
+    inv.cantidad -= cantidad
+    db.flush()
+    return consumos
+
+
+def _query_lotes(id_sucursal: int | None):
+    q = select(Lote).options(joinedload(Lote.producto)).where(Lote.cantidad > 0)
+    if id_sucursal is not None:
+        q = q.where(Lote.id_sucursal == id_sucursal)
+    return q
+
+
+def lotes_por_vencer(db: Session, dias: int, id_sucursal: int | None = None) -> list[Lote]:
+    hoy = date.today()
+    q = _query_lotes(id_sucursal).where(
+        Lote.fecha_vencimiento >= hoy,
+        Lote.fecha_vencimiento <= hoy + timedelta(days=dias),
+    )
+    return list(db.scalars(q.order_by(Lote.fecha_vencimiento, Lote.id_lote)).unique())
+
+
+def lotes_vencidos(db: Session, id_sucursal: int | None = None) -> list[Lote]:
+    q = _query_lotes(id_sucursal).where(Lote.fecha_vencimiento < date.today())
+    return list(db.scalars(q.order_by(Lote.fecha_vencimiento, Lote.id_lote)).unique())

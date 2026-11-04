@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.purchase_schema import LoteOut
+
 MAX_QTY = 1_000_000
 
 
@@ -66,3 +68,8 @@ class StockTransferOut(BaseModel):
     cantidad: int
     stock_origen: int
     stock_destino: int
+
+
+class LoteVencimientoOut(LoteOut):
+    nombre_producto: str
+    dias_para_vencer: int  # negativo si ya venció

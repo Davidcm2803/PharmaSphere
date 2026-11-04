@@ -1,23 +1,36 @@
-﻿from typing import List, Optional
+from datetime import date
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies.auth_dependencies import require_role
+from app.models.lot_model import Lote
 from app.models.user_model import Usuario
 from app.schemas.inventory_schema import (
     InventoryItemOut,
+    LoteVencimientoOut,
     StockAdjustIn,
     StockTransferIn,
     StockTransferOut,
 )
+from app.schemas.purchase_schema import LoteOut
 from app.services import inventory_service
 
 router = APIRouter()
 
 # Admin y empleado operan el inventario
 _staff = require_role("admin", "empleado")
+
+
+def _out(lote: Lote) -> LoteVencimientoOut:
+    datos = LoteOut.model_validate(lote).model_dump()
+    return LoteVencimientoOut(
+        **datos,
+        nombre_producto=lote.producto.nombre,
+        dias_para_vencer=(lote.fecha_vencimiento - date.today()).days,
+    )
 
 
 # Inventario filtrable
@@ -33,6 +46,26 @@ def list_inventory(
     return inventory_service.list_inventory(
         db, id_sucursal=id_sucursal, id_producto=id_producto, q=q, low_stock=low_stock
     )
+
+
+# Lotes por vencer / vencidos (FEFO)
+@router.get("/expiring", response_model=List[LoteVencimientoOut])
+def por_vencer(
+    days: int = Query(30, ge=1, le=365),
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_por_vencer(db, days, id_sucursal)]
+
+
+@router.get("/expired", response_model=List[LoteVencimientoOut])
+def vencidos(
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_vencidos(db, id_sucursal)]
 
 
 # Stock de un producto en cada sucursal activa
