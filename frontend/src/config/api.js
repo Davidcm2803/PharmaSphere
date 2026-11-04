@@ -1,0 +1,78 @@
+export const API_URL =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8010/api";
+
+// Base del servidor sin el prefijo /api (para servir /static/...)
+export const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+// Convierte "/static/productos/x.jpg" en URL completa; si ya es http(s) la deja igual
+export const assetUrl = (path) =>
+  !path ? null : path.startsWith("http") ? path : `${SERVER_URL}${path}`;
+
+// Siempre debe coincidir con el prefijo del backend de app /api/auth)
+export const ENDPOINTS = {
+  AUTH_REGISTER: "/auth/register", // POST
+  AUTH_LOGIN: "/auth/login", // POST
+  AUTH_FIREBASE: "/auth/firebase", // POST { id_token, nombre? }
+  AUTH_ME: "/auth/me", // GET (requiere token)
+  AUTH_USERS: "/auth/users", // GET (solo admin)
+  PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
+  PRODUCT_IMAGE: "/products/image", // POST multipart (admin) -> { imagen_url }
+  CATEGORIES: "/categories", // GET público
+  SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
+  SUPPLIER_OPTIONS: "/suppliers/options",
+  AI_CHAT: "/ai/chat", // POST { pregunta, historial: [{ rol, contenido }] } -> { respuesta, fuentes }
+
+  // Sucursales -> /branches y /branches/{id}
+  BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}
+  BRANCH_OPTIONS: "/branches/options", // GET (cliente logueado): solo sucursales activas para elegir retiro
+
+  // Empleados (ligados a sucursal) -> /employees y /employees/{id}
+  EMPLOYEES: "/employees", // GET, POST | PUT, DELETE en /employees/{id}
+
+  // Inventario por sucursal
+  INVENTORY: "/inventory", // GET ?id_sucursal=1&low_stock=true
+  INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
+  INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
+
+  // Compras online del cliente
+  SALES: "/sales", // POST { id_sucursal, items: [{ id_producto, cantidad }], telefono?, cedula? } (rol cliente)
+  SALES_ME: "/sales/me", // GET: pedidos del cliente autenticado
+  CUSTOMER_ME: "/customers/me", // GET: perfil del cliente autenticado
+  SALES_TOP: "/sales/top-products", // GET público: más vendidos
+};
+
+const TOKEN_KEY = "pharmasphere_token";
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
+export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+export async function apiFetch(
+  path,
+  { method = "GET", body, auth = true } = {},
+) {
+  const isForm = body instanceof FormData;
+  const headers = isForm ? {} : { "Content-Type": "application/json" };
+  const token = getToken();
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    // El backend siempre responde { success, status_code, message, details }
+    const error = new Error(
+      data?.message ?? "Error de conexión con el servidor",
+    );
+    error.status = res.status;
+    error.details = data?.details;
+    throw error;
+  }
+
+  return data;
+}

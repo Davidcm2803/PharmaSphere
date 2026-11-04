@@ -4,7 +4,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: "0 12 * * 1"   # lunes 12:00 UTC: revisa vulnerabilidades nuevas aunque no haya PRs
+    - cron: "0 12 * * 1"   # lunes 12:00 UTC: revisa vulnerabilidades
 
 jobs:
   backend:
@@ -46,6 +46,9 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt pytest httpx
 
+      - name: Tests de auth (primero)
+        run: python -m pytest app/test/test_auth.py -v
+
       - name: Crear esquema base y seed
         run: |
           psql -h localhost -U pharma_user -d pharmasphere -v ON_ERROR_STOP=1 -f app/db/init/init.sql
@@ -60,8 +63,8 @@ jobs:
       - name: Verificar que los modelos coinciden con la base
         run: alembic check
 
-      - name: Tests (pytest)
-        run: python -m pytest app/test
+      - name: Resto de tests (pytest)
+        run: python -m pytest app/test --ignore=app/test/test_auth.py
 
   frontend:
     runs-on: ubuntu-latest
@@ -97,4 +100,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version:
+          python-version: "3.12"
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+
+      - name: Auditar dependencias
+        run: pip-audit -r requirements.txt

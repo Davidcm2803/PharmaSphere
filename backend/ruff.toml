@@ -1,0 +1,15 @@
+[lint]
+select = ["F", "B"]
+
+[lint.flake8-bugbear]
+extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Query",
+  "fastapi.Security",
+  "app.dependencies.auth_dependencies.require_role",
+]
+
+[lint.per-file-ignores]
+"app/db/base.py" = ["F401"]   # importa los modelos a propósito (Alembic / create_all)
+"app/models/*" = ["F821"]     # referencias en texto de SQLAlchemy
+"app/test/*" = ["F811"]       # fixtures importados de test_auth.py

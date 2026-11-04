@@ -1,0 +1,290 @@
+// PharmaSphere - MODELO FISICO (PostgreSQL 16)
+// Tipos reales, tamanos, NOT NULL, defaults, indices y checks.
+// Pegar en https://dbdiagram.io para ver el diagrama.
+// DBML no soporta CHECK: se documentan en Note de cada tabla.
+
+Project PharmaSphere {
+  database_type: 'PostgreSQL'
+  Note: 'Modelo fisico. Borrado logico con columna activo; nunca DELETE sobre tablas maestras.'
+}
+
+Table sucursal {
+  id_sucursal int [pk, increment]
+  nombre varchar(100) [not null]
+  direccion varchar(255)
+  telefono varchar(20)
+  activo boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table proveedor {
+  id_proveedor int [pk, increment]
+  nombre varchar(150) [not null]
+  contacto varchar(150)
+  telefono varchar(20)
+  correo varchar(150)
+  activo boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table producto {
+  id_producto int [pk, increment]
+  nombre varchar(150) [not null]
+  descripcion varchar(500)
+  categoria varchar(100)
+  precio numeric(10,2) [not null]
+  costo numeric(10,2) [not null, default: 0]
+  requiere_receta boolean [not null, default: false]
+  imagen_url varchar(500)
+  activo boolean [not null, default: true]
+  id_proveedor int
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    id_proveedor [name: 'idx_producto_proveedor']
+    nombre [name: 'idx_producto_nombre']
+    categoria [name: 'idx_producto_categoria']
+  }
+
+  Note: 'CHECK ck_producto_precio: precio > 0 | CHECK ck_producto_costo: costo >= 0'
+}
+
+Table empleado {
+  id_empleado int [pk, increment]
+  nombre varchar(150) [not null]
+  puesto varchar(100)
+  id_sucursal int [not null]
+  activo boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    id_sucursal
+  }
+}
+
+Table cliente {
+  id_cliente int [pk, increment]
+  nombre varchar(150) [not null]
+  cedula varchar(20) [unique]
+  telefono varchar(20)
+  correo varchar(150) [unique]
+  direccion varchar(255)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table usuario {
+  id_usuario int [pk, increment]
+  firebase_uid varchar(128) [unique, note: 'null si el usuario se creo local (admin/empleado)']
+  password_hash varchar(255) [note: 'null si entra por Firebase; hash bcrypt, nunca texto plano']
+  correo varchar(150) [unique, not null]
+  nombre varchar(150)
+  rol varchar(20) [not null, default: 'cliente', note: 'admin | empleado | cliente']
+  id_cliente int
+  id_empleado int
+  activo boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    id_cliente
+    id_empleado
+  }
+
+  Note: 'CHECK: firebase_uid IS NOT NULL OR password_hash IS NOT NULL | CHECK: rol IN (admin, empleado, cliente)'
+}
+
+Table inventario {
+  id_inventario int [pk, increment]
+  id_producto int [not null]
+  id_sucursal int [not null]
+  cantidad int [not null, default: 0]
+  stock_minimo int [not null, default: 0]
+
+  indexes {
+    (id_producto, id_sucursal) [unique]
+  }
+
+  Note: 'CHECK: cantidad >= 0 AND stock_minimo >= 0'
+}
+
+Table compra {
+  id_compra int [pk, increment]
+  id_proveedor int [not null]
+  id_sucursal int [not null]
+  id_usuario int [not null]
+  fecha timestamp [not null, default: `now()`]
+  fecha_recepcion timestamp [note: 'null mientras siga pendiente']
+  estado varchar(20) [not null, default: 'pendiente', note: 'pendiente | recibida | cancelada']
+  total numeric(10,2) [not null, default: 0]
+
+  indexes {
+    id_proveedor
+    id_sucursal
+    id_usuario
+  }
+
+  Note: 'CHECK: estado IN (pendiente, recibida, cancelada) | CHECK: total >= 0'
+}
+
+Table detallecompra {
+  id_detallecompra int [pk, increment]
+  id_compra int [not null]
+  id_producto int [not null]
+  cantidad int [not null]
+  costo_unitario numeric(10,2) [not null]
+
+  indexes {
+    id_compra
+    id_producto
+  }
+
+  Note: 'CHECK: cantidad > 0 AND costo_unitario >= 0'
+}
+
+Table lote {
+  id_lote int [pk, increment]
+  id_producto int [not null]
+  id_sucursal int [not null]
+  id_compra int [note: 'null si el lote viene del seed']
+  numero_lote varchar(50) [not null]
+  fecha_vencimiento date [not null]
+  cantidad int [not null, default: 0]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (id_producto, id_sucursal, numero_lote) [unique]
+    fecha_vencimiento
+    id_compra
+  }
+
+  Note: 'CHECK: cantidad >= 0'
+}
+
+Table venta {
+  id_venta int [pk, increment]
+  fecha timestamp [not null, default: `now()`]
+  id_sucursal int [not null]
+  id_empleado int [note: 'null en compras online']
+  id_cliente int [note: 'null en mostrador anonimo']
+  total numeric(10,2) [not null, default: 0, note: 'calculado por el backend']
+  tipo varchar(20) [not null, note: 'online | mostrador']
+  estado varchar(20) [not null, default: 'pendiente', note: 'pendiente | pagada | retirada | cancelada']
+  metodo_pago varchar(30) [note: 'tarjeta, efectivo, sinpe, etc']
+  tarjeta_ultimos_4 char(4) [note: 'solo para el recibo; nunca la tarjeta completa']
+
+  indexes {
+    fecha
+    id_sucursal
+    id_cliente
+    id_empleado
+  }
+
+  Note: 'CHECK: tipo IN (online, mostrador) | CHECK: estado IN (pendiente, pagada, retirada, cancelada) | CHECK: total >= 0'
+}
+
+Table detalleventa {
+  id_detalleventa int [pk, increment]
+  id_venta int [not null]
+  id_producto int [not null]
+  cantidad int [not null]
+  precio_unitario numeric(10,2) [not null, note: 'precio al momento de la venta']
+
+  indexes {
+    id_venta
+    id_producto
+  }
+
+  Note: 'CHECK: cantidad > 0 AND precio_unitario >= 0'
+}
+
+Table receta {
+  id_receta int [pk, increment]
+  id_cliente int [not null]
+  medico varchar(150) [not null]
+  id_producto int [not null]
+  cantidad int [not null]
+  fecha date [not null]
+  vigencia_hasta date [not null]
+  estado varchar(20) [not null, default: 'vigente', note: 'vigente | usada | vencida']
+  archivo_url varchar(500)
+  id_venta int [note: 'null hasta que se use']
+
+  indexes {
+    id_cliente
+    id_producto
+    id_venta
+  }
+
+  Note: 'CHECK: estado IN (vigente, usada, vencida) | CHECK: cantidad > 0 | CHECK: vigencia_hasta >= fecha'
+}
+
+Table movimiento_inventario {
+  id_movimiento int [pk, increment]
+  id_producto int [not null]
+  id_sucursal int [not null]
+  id_lote int
+  tipo varchar(30) [not null, note: 'venta | compra | ajuste | transferencia_entrada | transferencia_salida | vencimiento']
+  cantidad int [not null, note: 'positivo = entra stock, negativo = sale']
+  motivo varchar(255)
+  id_usuario int [not null]
+  id_venta int
+  id_compra int
+  fecha timestamp [not null, default: `now()`]
+
+  indexes {
+    (id_producto, id_sucursal, fecha)
+    id_lote
+    id_usuario
+    id_venta
+    id_compra
+  }
+
+  Note: 'CHECK: tipo IN (venta, compra, ajuste, transferencia_entrada, transferencia_salida, vencimiento) | CHECK: cantidad <> 0'
+}
+
+Table documento {
+  id_documento int [pk, increment]
+  titulo varchar(200) [not null]
+  tipo varchar(50) [not null, note: 'manual | politica | ficha, etc']
+  contenido text
+  ruta varchar(500)
+  indexado boolean [not null, default: false, note: 'true si ya tiene embedding en Qdrant']
+  id_usuario int [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    id_usuario
+    indexado
+  }
+}
+
+// ---------- Llaves foraneas ----------
+Ref: producto.id_proveedor > proveedor.id_proveedor
+Ref: empleado.id_sucursal > sucursal.id_sucursal
+Ref: usuario.id_cliente > cliente.id_cliente
+Ref: usuario.id_empleado > empleado.id_empleado
+Ref: inventario.id_producto > producto.id_producto
+Ref: inventario.id_sucursal > sucursal.id_sucursal
+Ref: compra.id_proveedor > proveedor.id_proveedor
+Ref: compra.id_sucursal > sucursal.id_sucursal
+Ref: compra.id_usuario > usuario.id_usuario
+Ref: detallecompra.id_compra > compra.id_compra
+Ref: detallecompra.id_producto > producto.id_producto
+Ref: lote.id_producto > producto.id_producto
+Ref: lote.id_sucursal > sucursal.id_sucursal
+Ref: lote.id_compra > compra.id_compra
+Ref: venta.id_sucursal > sucursal.id_sucursal
+Ref: venta.id_empleado > empleado.id_empleado
+Ref: venta.id_cliente > cliente.id_cliente
+Ref: detalleventa.id_venta > venta.id_venta
+Ref: detalleventa.id_producto > producto.id_producto
+Ref: receta.id_cliente > cliente.id_cliente
+Ref: receta.id_producto > producto.id_producto
+Ref: receta.id_venta > venta.id_venta
+Ref: movimiento_inventario.id_producto > producto.id_producto
+Ref: movimiento_inventario.id_sucursal > sucursal.id_sucursal
+Ref: movimiento_inventario.id_lote > lote.id_lote
+Ref: movimiento_inventario.id_usuario > usuario.id_usuario
+Ref: movimiento_inventario.id_venta > venta.id_venta
+Ref: movimiento_inventario.id_compra > compra.id_compra
+Ref: documento.id_usuario > usuario.id_usuario
