@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowLeftRight, Boxes, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowLeftRight, Boxes, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import useFetch from "../../hooks/useFetch";
-import { ENDPOINTS } from "../../config/api";
+import { ENDPOINTS, apiFetch } from "../../config/api";
 import PageHeader from "../../components/admin/ui/PageHeader";
 import ActionButton from "../../components/admin/ui/ActionButton";
 import Panel from "../../components/admin/ui/Panel";
@@ -9,9 +9,11 @@ import StatCard from "../../components/admin/ui/StatCard";
 import DataTable from "../../components/admin/ui/DataTable";
 import Pagination from "../../components/admin/ui/Pagination";
 import Notice from "../../components/admin/ui/Notice";
+import ConfirmDialog from "../../components/admin/ui/ConfirmDialog";
 import Badge from "../../components/ui/Badge";
 import AjustarStockModal from "../../components/admin/inventory/AjustarStockModal";
 import TransferirStockModal from "../../components/admin/inventory/TransferirStockModal";
+import AgregarInventarioModal from "../../components/admin/inventory/AgregarInventarioModal";
 
 const PAGE_SIZE = 10;
 
@@ -100,13 +102,36 @@ export default function Inventario() {
 
   const [adjusting, setAdjusting] = useState(null);
   const [transferring, setTransferring] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState(null);
 
   const handleDone = (text) => {
     setAdjusting(null);
     setTransferring(null);
+    setAdding(false);
     setNotice({ type: "success", text });
     refetch();
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await apiFetch(`${ENDPOINTS.INVENTORY}/${toDelete.id_inventario}`, {
+        method: "DELETE",
+      });
+      setNotice({
+        type: "success",
+        text: `"${toDelete.nombre}" se quitó del inventario de ${branch?.nombre}`,
+      });
+      refetch();
+    } catch (err) {
+      setNotice({ type: "error", text: err.message });
+    } finally {
+      setDeleting(false);
+      setToDelete(null);
+    }
   };
 
   const renderActions = (r) => (
@@ -127,6 +152,14 @@ export default function Inventario() {
       >
         <ArrowLeftRight className="h-4 w-4" />
       </button>
+      <button
+        onClick={() => setToDelete(r)}
+        className={`${iconAction} hover:!text-brand-danger`}
+        aria-label={`Quitar ${r.nombre} del inventario`}
+        title="Quitar del inventario"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </>
   );
 
@@ -139,7 +172,16 @@ export default function Inventario() {
         title="Inventario"
         subtitle="Controla el stock de cada sucursal, ajústalo o transfiérelo."
         actions={
-          <ActionButton to="/admin/vencimientos">Ver vencimientos</ActionButton>
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+            <ActionButton to="/admin/vencimientos">
+              Ver vencimientos
+            </ActionButton>
+            {branchId && (
+              <ActionButton variant="primary" onClick={() => setAdding(true)}>
+                + Agregar al inventario
+              </ActionButton>
+            )}
+          </div>
         }
       />
 
@@ -265,7 +307,7 @@ export default function Inventario() {
               empty={
                 onlyLow || term
                   ? "No hay productos que coincidan con los filtros."
-                  : "No hay productos en el inventario de esta sucursal."
+                  : "No hay productos en el inventario de esta sucursal. Usa “+ Agregar al inventario”."
               }
             />
             <Pagination
@@ -277,6 +319,26 @@ export default function Inventario() {
           </>
         )}
       </Panel>
+
+      {toDelete && (
+        <ConfirmDialog
+          title="¿Quitar del inventario?"
+          message={`“${toDelete.nombre}” dejará de aparecer en el inventario de ${branch?.nombre}. Solo es posible si su stock es 0. El historial de movimientos se conserva.`}
+          confirmLabel="Quitar"
+          loading={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
+
+      {adding && (
+        <AgregarInventarioModal
+          branchId={branchId}
+          branchName={branch?.nombre}
+          onClose={() => setAdding(false)}
+          onDone={handleDone}
+        />
+      )}
 
       {adjusting && (
         <AjustarStockModal

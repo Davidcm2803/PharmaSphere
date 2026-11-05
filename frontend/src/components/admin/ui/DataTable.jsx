@@ -1,5 +1,11 @@
-export default function DataTable({ columns, rows, rowKey = "id", empty = "Sin resultados", renderActions }) {
+export default function DataTable({ columns, rows, rowKey = "id", empty = "Sin resultados", renderActions, onRowClick }) {
   const cell = (c, row) => (c.render ? c.render(row) : row[c.key]);
+  const clickable = onRowClick ? "cursor-pointer" : "";
+  const handleRow = (e, row) => {
+    if (!onRowClick) return;
+    if (e.target.closest("a, button")) return;
+    onRowClick(row);
+  };
 
   if (rows.length === 0) {
     return (
@@ -29,7 +35,11 @@ export default function DataTable({ columns, rows, rowKey = "id", empty = "Sin r
           </thead>
           <tbody className="divide-y divide-brand-border">
             {rows.map((row) => (
-              <tr key={row[rowKey]} className="transition-colors hover:bg-brand-muted/60">
+              <tr
+                key={row[rowKey]}
+                onClick={(e) => handleRow(e, row)}
+                className={`transition-colors hover:bg-brand-muted/60 ${clickable}`}
+              >
                 {columns.map((c, i) => (
                   <td
                     key={c.key}
@@ -50,7 +60,11 @@ export default function DataTable({ columns, rows, rowKey = "id", empty = "Sin r
       </div>
       <ul className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <li key={row[rowKey]} className="rounded-2xl border border-brand-border p-4">
+          <li
+            key={row[rowKey]}
+            onClick={(e) => handleRow(e, row)}
+            className={`rounded-2xl border border-brand-border p-4 ${clickable}`}
+          >
             <p className="font-bold text-brand-foreground">{cell(columns[0], row)}</p>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {columns.slice(1).map((c) => (

@@ -12,7 +12,7 @@ from app.models.inventory_model import Inventario
 from app.models.lot_model import Lote
 from app.models.movement_model import MovimientoInventario
 from app.models.product_model import Producto
-from app.schemas.inventory_schema import StockAdjustIn, StockTransferIn
+from app.schemas.inventory_schema import StockAddIn, StockAdjustIn, StockTransferIn
 from app.utils.sql import escape_like
 
 
@@ -148,6 +148,21 @@ def list_stock_totals(db: Session, *, limite: int = 10, ascendente: bool = False
     ]
 
 
+# productos activos que aún no tienen fila de inventario en la sucursal
+def list_products_without_inventory(db: Session, id_sucursal: int) -> List[dict]:
+    _active_branch(db, id_sucursal)
+    existentes = select(Inventario.id_producto).where(Inventario.id_sucursal == id_sucursal)
+    stmt = (
+        select(Producto.id_producto, Producto.nombre, Producto.categoria)
+        .where(Producto.activo.is_(True), Producto.id_producto.not_in(existentes))
+        .order_by(func.lower(Producto.nombre))
+    )
+    return [
+        {"id_producto": i, "nombre": n, "categoria": c}
+        for i, n, c in db.execute(stmt).all()
+    ]
+
+
 # ajuste manual
 def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
     branch = _active_branch(db, data.id_sucursal)
@@ -185,16 +200,21 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
             )
         inv.cantidad = nuevo
 
-        db.add(
-            MovimientoInventario(
-                id_producto=data.id_producto,
-                id_sucursal=data.id_sucursal,
-                tipo="ajuste",
-                cantidad=data.cantidad,
-                motivo=data.motivo,
-                id_usuario=id_usuario,
+        if data.stock_minimo is not None:
+            inv.stock_minimo = data.stock_minimo
+
+        # Solo hay movimiento si cambió la cantidad (cambiar el mínimo no mueve stock)
+        if data.cantidad != 0:
+            db.add(
+                MovimientoInventario(
+                    id_producto=data.id_producto,
+                    id_sucursal=data.id_sucursal,
+                    tipo="ajuste",
+                    cantidad=data.cantidad,
+                    motivo=data.motivo,
+                    id_usuario=id_usuario,
+                )
             )
-        )
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -212,6 +232,115 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
         id_sucursal=branch.id_sucursal,
         sucursal_nombre=branch.nombre,
     )
+
+
+# alta de un producto en una sucursal (cantidad inicial + stock mínimo)
+def add_to_inventory(db: Session, data: StockAddIn, id_usuario: int) -> dict:
+    branch = _active_branch(db, data.id_sucursal)
+    producto = _product(db, data.id_producto)
+
+    try:
+        existente = db.scalars(
+            select(Inventario)
+            .where(
+                Inventario.id_producto == data.id_producto,
+                Inventario.id_sucursal == data.id_sucursal,
+            )
+            .with_for_update()
+        ).first()
+        if existente is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"{producto.nombre} ya está en el inventario de {branch.nombre}. Usa «Ajustar stock».",
+            )
+
+        inv = Inventario(
+            id_producto=data.id_producto,
+            id_sucursal=data.id_sucursal,
+            cantidad=data.cantidad,
+            stock_minimo=data.stock_minimo,
+        )
+        db.add(inv)
+
+        if data.cantidad > 0:
+            db.add(
+                MovimientoInventario(
+                    id_producto=data.id_producto,
+                    id_sucursal=data.id_sucursal,
+                    tipo="ajuste",
+                    cantidad=data.cantidad,
+                    motivo=data.motivo or "Alta de producto en sucursal",
+                    id_usuario=id_usuario,
+                )
+            )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "El producto ya está en esta sucursal")
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(inv)
+    return _item(
+        inv,
+        id_producto=producto.id_producto,
+        producto_nombre=producto.nombre,
+        categoria=producto.categoria,
+        id_sucursal=branch.id_sucursal,
+        sucursal_nombre=branch.nombre,
+    )
+
+
+# quitar un producto del inventario de una sucursal (solo si no tiene stock)
+def delete_from_inventory(db: Session, id_inventario: int, id_usuario: int) -> None:
+    inv = db.scalars(
+        select(Inventario).where(Inventario.id_inventario == id_inventario).with_for_update()
+    ).first()
+    if inv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Registro de inventario no encontrado")
+
+    if inv.cantidad > 0:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"No se puede quitar: aún hay {inv.cantidad} unidades. Ajusta el stock a 0 o transfiérelo primero.",
+        )
+
+    # Lotes que quedaron con unidades aunque el inventario esté en 0 (p. ej. vencidos
+    # o por ajustes manuales): se ponen en 0 y se deja rastro en movimientos.
+    lotes = db.scalars(
+        select(Lote)
+        .where(
+            Lote.id_producto == inv.id_producto,
+            Lote.id_sucursal == inv.id_sucursal,
+            Lote.cantidad > 0,
+        )
+        .with_for_update()
+    ).all()
+
+    try:
+        for lote in lotes:
+            db.add(
+                MovimientoInventario(
+                    id_producto=inv.id_producto,
+                    id_sucursal=inv.id_sucursal,
+                    id_lote=lote.id_lote,
+                    tipo="ajuste",
+                    cantidad=-lote.cantidad,
+                    motivo="Baja de producto en sucursal (lote dado de baja)",
+                    id_usuario=id_usuario,
+                )
+            )
+            lote.cantidad = 0
+
+        db.delete(inv)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "No se pudo eliminar el registro de inventario")
+    except Exception:
+        db.rollback()
+        raise
 
 
 # transferencia

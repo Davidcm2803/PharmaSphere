@@ -22,20 +22,49 @@ class InventoryItemOut(BaseModel):
 class StockAdjustIn(BaseModel):
     id_producto: int = Field(ge=1)
     id_sucursal: int = Field(ge=1)
-    cantidad: int = Field(ge=-MAX_QTY, le=MAX_QTY, description="Positivo suma, negativo resta")
-    motivo: str = Field(min_length=3, max_length=255)
+    cantidad: int = Field(0, ge=-MAX_QTY, le=MAX_QTY, description="Positivo suma, negativo resta, 0 = sin cambio")
+    motivo: Optional[str] = Field(None, max_length=255)
+    stock_minimo: Optional[int] = Field(None, ge=0, le=MAX_QTY, description="Nuevo stock mínimo (opcional)")
 
     @field_validator("motivo", mode="before")
     @classmethod
     def _strip_motivo(cls, v):
-        return v.strip() if isinstance(v, str) else v
-
-    @field_validator("cantidad")
-    @classmethod
-    def _not_zero(cls, v: int) -> int:
-        if v == 0:
-            raise ValueError("La cantidad no puede ser 0")
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
         return v
+
+    @model_validator(mode="after")
+    def _validate_adjust(self):
+        if self.cantidad == 0 and self.stock_minimo is None:
+            raise ValueError("Indica una cantidad distinta de 0 o un nuevo stock mínimo")
+        if self.cantidad != 0 and (not self.motivo or len(self.motivo) < 3):
+            raise ValueError("El motivo es obligatorio (mínimo 3 caracteres) al ajustar la cantidad")
+        return self
+
+
+class StockAddIn(BaseModel):
+    """Alta de un producto en el inventario de una sucursal."""
+
+    id_producto: int = Field(ge=1)
+    id_sucursal: int = Field(ge=1)
+    cantidad: int = Field(0, ge=0, le=MAX_QTY)
+    stock_minimo: int = Field(0, ge=0, le=MAX_QTY)
+    motivo: Optional[str] = Field(None, max_length=200)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def _strip_motivo(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
+        return v
+
+
+class ProductoSinInventarioOut(BaseModel):
+    id_producto: int
+    nombre: str
+    categoria: Optional[str] = None
 
 
 class StockTransferIn(BaseModel):

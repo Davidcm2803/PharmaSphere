@@ -1,6 +1,6 @@
 import {
   Pill, LayoutGrid, Package, ChartColumn, ShoppingBag, Truck,
-  Clock, FileText, Users, ClipboardList, Store, UserCog,
+  Clock, FileText, Users, ClipboardList, Store, UserCog, ShoppingCart,
 } from "lucide-react";
 
 export const NAV_ITEMS = [
@@ -8,6 +8,7 @@ export const NAV_ITEMS = [
   { path: "inventario", label: "Inventario", icon: Package, quick: true },
   { path: "productos", label: "Medicamentos", icon: Pill, quick: true },
   { path: "ventas", label: "Ventas", icon: ChartColumn, quick: true },
+  { path: "punto-de-venta", label: "Punto de venta", icon: ShoppingCart },
   { path: "compras", label: "Compras", icon: ShoppingBag },
   { path: "proveedores", label: "Proveedores", icon: Truck },
   { path: "clientes", label: "Clientes", icon: Users },

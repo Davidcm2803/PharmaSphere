@@ -31,6 +31,8 @@ export const ENDPOINTS = {
 
   // Inventario por sucursal
   INVENTORY: "/inventory", // GET ?id_sucursal=1&low_stock=true
+  INVENTORY_MISSING: "/inventory/missing", // GET ?id_sucursal=1 -> productos sin fila en esa sucursal
+  INVENTORY_ADD: "/inventory/add", // POST { id_producto, id_sucursal, cantidad, stock_minimo, motivo? }
   INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
   INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
 
@@ -39,6 +41,9 @@ export const ENDPOINTS = {
   SALES_ME: "/sales/me", // GET: pedidos del cliente autenticado
   CUSTOMER_ME: "/customers/me", // GET: perfil del cliente autenticado
   SALES_TOP: "/sales/top-products", // GET público: más vendidos
+  SALES_COUNTER: "/sales/mostrador", // POST venta del POS (admin/empleado)
+  CUSTOMERS: "/customers", // GET lista (?q, ?cedula) | POST | /{id}: GET, PUT
+  RECIPES: "/recipes", // GET lista | POST | /{id}: GET, PUT
 };
 
 const TOKEN_KEY = "pharmasphere_token";
