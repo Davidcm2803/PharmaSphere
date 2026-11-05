@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AdminLayout from "../../components/admin/layout/AdminLayout";
 import ProtectedRoute from "../../components/auth/ProtectedRoute";
 import Placeholder from "./Placeholder";
+import Dashboard from "./Dashboard";
 import Medicines from "./Medicines";
 import ProductCreate from "./ProductCreate";
 import ProductEdit from "./ProductEdit";
@@ -20,7 +21,7 @@ export default function AdminRoutes() {
     <Routes>
       <Route element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<Placeholder title="Resumen" />} />
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="productos" element={<Medicines />} />
         <Route path="productos/nuevo" element={<ProductCreate />} />

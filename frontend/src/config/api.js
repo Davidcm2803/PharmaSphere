@@ -44,6 +44,16 @@ export const ENDPOINTS = {
   SALES_COUNTER: "/sales/mostrador", // POST venta del POS (admin/empleado)
   CUSTOMERS: "/customers", // GET lista (?q, ?cedula) | POST | /{id}: GET, PUT
   RECIPES: "/recipes", // GET lista | POST | /{id}: GET, PUT
+
+  // Reportes (solo admin) 
+  REPORTS_SUMMARY: "/reports/summary", // GET KPIs
+  REPORTS_SALES_BY_DAY: "/reports/sales-by-day", // GET ?desde&hasta&id_sucursal
+  REPORTS_TOP_PRODUCTS: "/reports/top-products", // GET ?limit&orden=unidades|ingresos
+  REPORTS_BRANCHES: "/reports/branches", // GET ranking de sucursales
+  REPORTS_MOST_VIEWED: "/reports/most-viewed", // GET ?limit
+  REPORTS_ALERTS: "/reports/alerts", // GET stock bajo / por vencer / vencidos
+  REPORTS_MOVEMENTS: "/reports/movements", // GET ?limit
+  REPORTS_EXPORT: "/reports/export", // GET CSV ?tipo=ventas|productos|sucursales|inventario
 };
 
 const TOKEN_KEY = "pharmasphere_token";
@@ -80,4 +90,25 @@ export async function apiFetch(
   }
 
   return data;
+}
+
+export async function apiDownload(path, filename) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const error = new Error(data?.message ?? "No se pudo descargar el archivo");
+    error.status = res.status;
+    throw error;
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
