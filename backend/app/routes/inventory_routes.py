@@ -11,6 +11,8 @@ from app.models.user_model import Usuario
 from app.schemas.inventory_schema import (
     InventoryItemOut,
     LoteVencimientoOut,
+    ProductoSinInventarioOut,
+    StockAddIn,
     StockAdjustIn,
     StockTransferIn,
     StockTransferOut,
@@ -68,6 +70,16 @@ def vencidos(
     return [_out(l) for l in inventory_service.lotes_vencidos(db, id_sucursal)]
 
 
+# Productos que aún no están en el inventario de una sucursal
+@router.get("/missing", response_model=List[ProductoSinInventarioOut])
+def missing_products(
+    id_sucursal: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return inventory_service.list_products_without_inventory(db, id_sucursal)
+
+
 # Stock de un producto en cada sucursal activa
 @router.get("/product/{id_producto}", response_model=List[InventoryItemOut])
 def product_stock(
@@ -78,6 +90,16 @@ def product_stock(
     return inventory_service.get_product_stock(db, id_producto)
 
 
+# Alta de un producto en una sucursal
+@router.post("/add", response_model=InventoryItemOut, status_code=201)
+def add_to_inventory(
+    data: StockAddIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return inventory_service.add_to_inventory(db, data, user.id_usuario)
+
+
 # Ajuste manual
 @router.post("/adjust", response_model=InventoryItemOut)
 def adjust_stock(
@@ -86,6 +108,16 @@ def adjust_stock(
     user: Usuario = Depends(_staff),
 ):
     return inventory_service.adjust_stock(db, data, user.id_usuario)
+
+
+# Quitar un producto del inventario de una sucursal (solo con stock 0)
+@router.delete("/{id_inventario}", status_code=204)
+def delete_from_inventory(
+    id_inventario: int,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    inventory_service.delete_from_inventory(db, id_inventario, user.id_usuario)
 
 
 # Transferencia entre sucursales
