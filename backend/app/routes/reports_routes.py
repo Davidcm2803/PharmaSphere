@@ -8,7 +8,11 @@ from app.db.session import get_db
 from app.dependencies.auth_dependencies import require_role
 from app.services import report_service
 
+from fastapi.responses import Response
+from app.services import report_export_service
+
 MAX_DIAS = 366
+DIAS_PERMITIDOS = (7, 30, 90)
 
 # Todos los reportes son solo para admin (401 sin token, 403 si no es admin)
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
@@ -62,3 +66,16 @@ def alerts(db: Session = Depends(get_db)):
 @router.get("/movements")
 def movements(limit: int = Query(6, ge=1, le=50), db: Session = Depends(get_db)):
     return report_service.get_movements(db, limit)
+
+
+@router.get("/export")
+def export_csv(dias: int = Query(30), db: Session = Depends(get_db)):
+    if dias not in DIAS_PERMITIDOS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "dias debe ser 7, 30 o 90")
+    contenido = report_export_service.build_report_csv(db, dias)
+    nombre = f"reporte_pharmasphere_{dias}d_{report_service.today_cr():%Y-%m-%d}.csv"
+    return Response(
+        content=contenido,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )

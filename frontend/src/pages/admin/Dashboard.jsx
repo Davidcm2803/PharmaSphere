@@ -15,6 +15,10 @@ import AlertsList from "../../components/admin/Dashboard/AlertsList";
 import RecentMovements from "../../components/admin/Dashboard/RecentMovements";
 import ProfileCard from "../../components/admin/Dashboard/ProfileCard";
 import { useAuth } from "../../context/AuthContext";
+import { format } from "date-fns";
+import { Download } from "lucide-react";
+import useMutation from "../../hooks/useMutation";
+import { ENDPOINTS, apiDownload } from "../../config/api";
 import { useAlerts, useBranchRanking, useMostViewed, useMovements, useSalesByDay, useSummary, useTopProducts } from "../../hooks/useReports";
 
 export default function Dashboard() {
@@ -29,6 +33,13 @@ export default function Dashboard() {
   const movements = useMovements(6);
   const s = summary.data;
 
+  const exportar = useMutation(() =>
+    apiDownload(
+      `${ENDPOINTS.REPORTS_EXPORT}?dias=${dias}`,
+      `reporte_pharmasphere_${dias}d_${format(new Date(), "yyyy-MM-dd")}.csv`,
+    ),
+  );
+
   return (
     <>
       <PageHeader
@@ -40,6 +51,10 @@ export default function Dashboard() {
             <ActionButton variant="primary" to="/admin/reportes" className="col-span-2"><TrendingUp className="h-4 w-4" />Ver reportes</ActionButton>
             <ActionButton to="/admin/inventario"><PackagePlus className="h-4 w-4" />Agregar al inventario</ActionButton>
             <ActionButton to="/admin/vencimientos">Ver vencimientos</ActionButton>
+            <ActionButton variant="primary" onClick={() => exportar.run()} disabled={exportar.submitting}>
+              <Download className="h-4 w-4" />
+              {exportar.submitting ? "Generando..." : "Exportar CSV"}
+            </ActionButton>
           </div>
         }
       />
@@ -50,6 +65,11 @@ export default function Dashboard() {
           <button onClick={summary.refetch} className="font-bold underline">Reintentar</button>
         </Notice>
       )}
+
+      {exportar.error && (
+        <Notice type="error" className="mt-6">{exportar.error.message}</Notice>
+      )}
+
 
       <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12 lg:gap-6">
         <Reveal index={0} className="md:col-span-3 lg:col-span-3"><HeroKpiCard label="Ventas de hoy" value={s?.ventas_hoy} loading={summary.loading} /></Reveal>

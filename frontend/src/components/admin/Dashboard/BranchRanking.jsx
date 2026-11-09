@@ -48,7 +48,12 @@ export default function BranchRanking({ query }) {
                 <Cell key={r.id_sucursal} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip content={<BranchTooltip />} />
+            <Tooltip
+              content={<BranchTooltip />}
+              position={{ y: -56, x: 40 }}
+              allowEscapeViewBox={{ x: false, y: true }}
+              wrapperStyle={{ zIndex: 20, outline: "none" }}
+            />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
