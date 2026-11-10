@@ -33,7 +33,7 @@ def get_top_products(db: Session, limit: int = 4) -> list[dict]:
         select(Producto, func.coalesce(func.sum(DetalleVenta.cantidad), 0).label("vendidos"))
         .join(DetalleVenta, DetalleVenta.id_producto == Producto.id_producto)
         .join(Venta, Venta.id_venta == DetalleVenta.id_venta)
-        .where(Venta.estado != "cancelada")
+        .where(Venta.estado != "cancelada", Producto.activo.is_(True))
         .group_by(Producto.id_producto)
         .order_by(desc("vendidos"))
         .limit(limit)
@@ -41,12 +41,12 @@ def get_top_products(db: Session, limit: int = 4) -> list[dict]:
 
     result = [_to_dict(p, vendidos) for p, vendidos in rows]
 
-    # Si hay pocas ventas, se completa con los productos más recientes
+    # Si hay pocas ventas, se completa con los productos activos más recientes
     if len(result) < limit:
         used = [r["id_producto"] for r in result]
         extra = db.scalars(
             select(Producto)
-            .where(Producto.id_producto.not_in(used))
+            .where(Producto.id_producto.not_in(used), Producto.activo.is_(True))
             .order_by(Producto.id_producto.desc())
             .limit(limit - len(result))
         ).all()

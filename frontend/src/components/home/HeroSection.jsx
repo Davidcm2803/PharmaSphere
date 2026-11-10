@@ -379,31 +379,33 @@ function HeroStage({ slides }) {
             className="pointer-events-none absolute inset-0 lg:left-[40%]"
             style={{ x: prodX, y: prodY, rotateX: tiltX, rotateY: tiltY, transformPerspective: 1200 }}
           >
-            <AnimatePresence custom={dir} initial={false}>
-              <motion.div
-                key={slide.id}
-                custom={dir}
-                variants={productV}
-                initial={reduce ? false : "enter"}
-                animate="center"
-                exit="exit"
-                className="absolute inset-0 flex items-center justify-center"
-              >
+            <motion.div
+              className="absolute inset-0 will-change-transform"
+              animate={reduce ? undefined : { y: [0, -14, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <AnimatePresence custom={dir} initial={false}>
                 <motion.div
-                  className="relative aspect-square h-[84%] max-w-full shrink-0 will-change-transform lg:h-[104%]"
-                  animate={reduce ? undefined : { y: [0, -14, 0] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                  key={slide.id}
+                  custom={dir}
+                  variants={productV}
+                  initial={reduce ? false : "enter"}
+                  animate="center"
+                  exit="exit"
+                  className="absolute inset-0 flex items-center justify-center"
                 >
-                  <Link
-                    to={`/shop/${slide.id}`}
-                    aria-label={`Ver ${slide.name}`}
-                    className="pointer-events-auto relative block h-full w-full rounded-[2rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                  >
-                    <ProductImage slide={slide} />
-                  </Link>
+                  <div className="relative aspect-square h-[84%] max-w-full shrink-0 lg:h-[104%]">
+                    <Link
+                      to={`/shop/${slide.id}`}
+                      aria-label={`Ver ${slide.name}`}
+                      className="pointer-events-auto relative block h-full w-full rounded-[2rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                    >
+                      <ProductImage slide={slide} />
+                    </Link>
+                  </div>
                 </motion.div>
-              </motion.div>
-            </AnimatePresence>
+              </AnimatePresence>
+            </motion.div>
           </motion.div>
         </div>
 
