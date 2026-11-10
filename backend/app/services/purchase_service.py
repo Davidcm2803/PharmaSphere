@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 import app.db.base  # noqa: F401  (registra todos los modelos)
+from app.core import cache
 from app.models.branch_model import Sucursal
 from app.models.inventory_model import Inventario
 from app.models.lot_model import Lote
@@ -53,6 +54,7 @@ def crear_compra(db: Session, datos: CompraCreate) -> Compra:
     )
     db.add(compra)
     db.commit()
+    cache.invalidate_stock()
     db.refresh(compra)
     return compra
 
@@ -144,6 +146,7 @@ def recibir_compra(
         compra.estado = "recibida"
         compra.fecha_recepcion = datetime.now()
         db.commit()
+        cache.invalidate_stock()
         db.refresh(compra)
         return compra, lotes_afectados
     except Exception:

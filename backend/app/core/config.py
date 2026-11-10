@@ -1,4 +1,4 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     firebase_project_id: str = ""
     firebase_client_email: str = ""
     firebase_private_key: str = ""
+
+    # Redis (cache)
+    redis_url: str = "redis://redis:6379/0"
+    cache_enabled: bool = True
+    cache_prefix: str = "ps:"
 
 
 settings = Settings()

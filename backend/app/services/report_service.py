@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import Date, cast, func, literal, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import cached
 from app.models.branch_model import Sucursal
 from app.models.customer_model import Cliente
 from app.models.employee_model import Empleado
@@ -98,6 +99,7 @@ def _count_lotes(db: Session, *condiciones) -> int:
     )
 
 
+@cached("reports:summary", ttl=60)
 def get_summary(db: Session) -> dict:
     ahora = now_cr()
     hoy = ahora.date()
@@ -144,6 +146,7 @@ def get_summary(db: Session) -> dict:
 
 
 # ventas por día
+@cached("reports:sales_by_day", ttl=120)
 def get_sales_by_day(
     db: Session, desde: date, hasta: date, id_sucursal: Optional[int] = None
 ) -> list[dict]:
@@ -181,6 +184,7 @@ def get_sales_by_day(
 
 
 # rankings
+@cached("reports:top_products", ttl=300)
 def get_top_products(db: Session, limit: int, orden: str) -> list[dict]:
     unidades = func.sum(DetalleVenta.cantidad)
     ingresos = func.sum(DetalleVenta.cantidad * DetalleVenta.precio_unitario)
@@ -199,6 +203,7 @@ def get_top_products(db: Session, limit: int, orden: str) -> list[dict]:
     ]
 
 
+@cached("reports:branches", ttl=300)
 def get_branch_ranking(db: Session) -> list[dict]:
     total = func.sum(Venta.total)
     rows = db.execute(
@@ -220,6 +225,7 @@ def get_branch_ranking(db: Session) -> list[dict]:
     ]
 
 
+@cached("reports:most_viewed", ttl=300)
 def get_most_viewed(db: Session, limit: int) -> list[dict]:
     stock = (
         select(Inventario.id_producto, func.coalesce(func.sum(Inventario.cantidad), 0).label("stock_total"))
@@ -273,6 +279,7 @@ def get_most_viewed(db: Session, limit: int) -> list[dict]:
 
 
 #  alertas
+@cached("reports:alerts", ttl=60)
 def get_alerts(db: Session) -> list[dict]:
     hoy = today_cr()
     alertas: list[dict] = []
@@ -324,6 +331,7 @@ def get_alerts(db: Session) -> list[dict]:
     return alertas
 
 
+@cached("reports:movements", ttl=30)
 def get_movements(db: Session, limit: int) -> list[dict]:
     rows = db.execute(
         select(

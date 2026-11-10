@@ -1,10 +1,12 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
+from app.core import cache
 from app.db.session import get_db
 from app.dependencies.auth_dependencies import bearer_scheme, get_current_user, require_role
 from app.models.user_model import Usuario
@@ -48,6 +50,7 @@ def _not_found():
 #Cliente pagination, filtros y orden por precio
 @router.get("", response_model=Page[ProductOut])
 def list_products(
+    request: Request,
     q: Optional[str] = Query(None, max_length=100, description="Búsqueda por nombre"),
     categoria: Optional[str] = Query(None, max_length=100),
     precio_min: Optional[Decimal] = Query(None, ge=0),
@@ -62,6 +65,12 @@ def list_products(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="precio_min no puede ser mayor que precio_max",
         )
+    key = "products:list:" + "&".join(
+        f"{k}={v}" for k, v in sorted(request.query_params.multi_items())
+    )
+    hit = cache.get_json(key)
+    if hit is not None:
+        return hit
     rows, total = product_service.list_products(
         db,
         q=q,
@@ -73,7 +82,9 @@ def list_products(
         params=params,
     )
     items = [_out(ProductOut, p, stock) for p, stock in rows]
-    return build_page(items, total, params)
+    page = build_page(items, total, params)
+    cache.set_json(key, jsonable_encoder(page), ttl=60)
+    return page
 
 
 @router.post("/image", response_model=ImageUploadOut, status_code=status.HTTP_201_CREATED)

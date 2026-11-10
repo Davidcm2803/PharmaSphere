@@ -1,10 +1,11 @@
-﻿from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core import cache
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
@@ -50,7 +51,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+class CachedStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            if path.startswith("productos/cutout"):
+                response.headers["Cache-Control"] = "public, max-age=3600"
+            else:
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+app.mount("/static", CachedStaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(products_routes.router, prefix="/api/products", tags=["products"])
@@ -69,4 +81,4 @@ app.include_router(ai_routes.router, prefix="/api/ai", tags=["ai"])
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "environment": settings.environment}
+    return {"status": "ok", "environment": settings.environment, "cache": cache.ping()}

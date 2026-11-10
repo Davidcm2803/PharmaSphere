@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 import app.db.base  # noqa: F401
+from app.core import cache
 from app.models.branch_model import Sucursal
 from app.models.inventory_model import Inventario
 from app.models.lot_model import Lote
@@ -216,6 +217,7 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
                 )
             )
         db.commit()
+        cache.invalidate_stock()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Conflicto al actualizar el inventario, intenta de nuevo")
@@ -274,6 +276,7 @@ def add_to_inventory(db: Session, data: StockAddIn, id_usuario: int) -> dict:
                 )
             )
         db.commit()
+        cache.invalidate_stock()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "El producto ya está en esta sucursal")
@@ -335,6 +338,7 @@ def delete_from_inventory(db: Session, id_inventario: int, id_usuario: int) -> N
 
         db.delete(inv)
         db.commit()
+        cache.invalidate_stock()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "No se pudo eliminar el registro de inventario")
@@ -406,6 +410,7 @@ def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
             ]
         )
         db.commit()  # unico commit: si algo falló antes, no se guardó nada
+        cache.invalidate_stock()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Conflicto al transferir el stock, intenta de nuevo")

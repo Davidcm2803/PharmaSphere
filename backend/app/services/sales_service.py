@@ -6,6 +6,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core import cache
 from app.models.branch_model import Sucursal
 from app.models.customer_model import Cliente
 from app.models.inventory_model import Inventario
@@ -217,6 +218,7 @@ def _sell(
             receta.estado = "usada"
             receta.id_venta = venta.id_venta
         db.commit()
+        cache.invalidate_stock()
     except IntegrityError:
         db.rollback()
         raise SaleConflictError("Hubo un conflicto al registrar la venta, intenta de nuevo") from None

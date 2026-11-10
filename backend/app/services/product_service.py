@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core import cache
 from app.models.inventory_model import Inventario
 from app.models.product_model import Producto
 from app.models.supplier_model import Proveedor
@@ -115,6 +116,7 @@ def create_product(db: Session, data: ProductCreate) -> Producto:
     product = Producto(**data.model_dump())
     db.add(product)
     db.commit()
+    cache.invalidate_catalog()
     db.refresh(product)
     return product
 
@@ -128,6 +130,7 @@ def update_product(db: Session, product: Producto, data: ProductUpdate) -> Produ
             continue
         setattr(product, field, value)
     db.commit()
+    cache.invalidate_catalog()
     db.refresh(product)
     return product
 
@@ -135,8 +138,10 @@ def update_product(db: Session, product: Producto, data: ProductUpdate) -> Produ
 def delete_product(db: Session, product: Producto) -> None:
     product.activo = False
     db.commit()
+    cache.invalidate_catalog()
 
 
+@cache.cached("categories:all", ttl=600)
 def list_categories(db: Session) -> List[str]:
     stmt = (
         select(Producto.categoria)

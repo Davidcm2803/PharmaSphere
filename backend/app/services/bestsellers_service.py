@@ -1,6 +1,7 @@
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import cached
 from app.models.product_model import Producto
 from app.models.sale_model import DetalleVenta, Venta
 from app.utils.cutouts import alpha_png_url, cutout_url
@@ -26,6 +27,7 @@ def _to_dict(p: Producto, vendidos: int) -> dict:
     }
 
 
+@cached("bestsellers:top", ttl=300)
 def get_top_products(db: Session, limit: int = 4) -> list[dict]:
     rows = db.execute(
         select(Producto, func.coalesce(func.sum(DetalleVenta.cantidad), 0).label("vendidos"))
