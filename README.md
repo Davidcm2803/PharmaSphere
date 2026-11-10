@@ -25,6 +25,7 @@ El sistema tiene dos frentes:
 - SQLAlchemy + Alembic
 - Pydantic / Pydantic Settings
 - PostgreSQL
+- Redis
 
 **IA / RAG**
 - Qdrant (vector database)
