@@ -19,7 +19,7 @@ import Select from "../../components/ui/Select";
 
 const PAGE_SIZE = 10;
 
-const EMPTY_FORM = { nombre: "", puesto: "", id_sucursal: "", activo: "true" };
+const EMPTY_FORM = { nombre: "", puesto: "", correo: "", id_sucursal: "", activo: "true" };
 
 const toList = (data) => (Array.isArray(data) ? data : (data?.items ?? []));
 
@@ -62,7 +62,7 @@ export default function Empleados() {
     .filter(
       (e) =>
         !term ||
-        [e.nombre, e.puesto].some((v) => v?.toLowerCase().includes(term)),
+        [e.nombre, e.puesto, e.correo].some((v) => v?.toLowerCase().includes(term)),
     );
 
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -101,6 +101,7 @@ export default function Empleados() {
     setForm({
       nombre: emp.nombre ?? "",
       puesto: emp.puesto ?? "",
+      correo: emp.correo ?? "",
       id_sucursal: emp.id_sucursal ? String(emp.id_sucursal) : "",
       activo: String(emp.activo),
     });
@@ -128,6 +129,8 @@ export default function Empleados() {
       puesto: form.puesto.trim() || null,
       id_sucursal: Number(form.id_sucursal),
     };
+    const correo = form.correo.trim().toLowerCase();
+    if (correo) body.correo = correo;
     if (editing) body.activo = form.activo === "true";
 
     setSaving(true);
@@ -170,6 +173,7 @@ export default function Empleados() {
   const columns = [
     { key: "nombre", label: "Nombre" },
     { key: "puesto", label: "Puesto", render: (r) => r.puesto || "—" },
+    { key: "correo", label: "Correo", render: (r) => r.correo || "—" },
     { key: "sucursal", label: "Sucursal", render: (r) => branchLabel(r) },
     {
       key: "activo",
@@ -262,7 +266,7 @@ export default function Empleados() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Nombre o puesto..."
+                placeholder="Nombre, puesto o correo..."
                 className="h-10 w-full rounded-lg border border-brand-border bg-brand-card pl-9 pr-3 text-sm text-brand-foreground placeholder:text-brand-muted-foreground focus:border-brand-primary focus:outline-none"
               />
             </span>
@@ -361,6 +365,14 @@ export default function Empleados() {
             onChange={setField("puesto")}
             placeholder="Ej. Farmacéutico, Cajero"
           />
+          <Input
+            id="correo"
+            label="Correo (acceso con Google)"
+            type="email"
+            value={form.correo}
+            onChange={setField("correo")}
+            placeholder="correo@gmail.com"
+          />
           <Select
             id="id_sucursal"
             label="Sucursal"
@@ -402,7 +414,7 @@ export default function Empleados() {
       {toDeactivate && (
         <ConfirmDialog
           title="¿Desactivar empleado?"
-          message={`“${toDeactivate.nombre}” quedará inactivo. Podrás reactivarlo editándolo.`}
+          message={`“${toDeactivate.nombre}” quedará inactivo y no podrá iniciar sesión. Podrás reactivarlo editándolo.`}
           confirmLabel="Desactivar"
           loading={deactivating}
           onConfirm={handleDeactivate}

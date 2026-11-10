@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeftRight, Boxes, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import useFetch from "../../hooks/useFetch";
 import { ENDPOINTS, apiFetch } from "../../config/api";
@@ -107,6 +107,10 @@ export default function Inventario() {
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState(null);
 
+  useEffect(() => {
+    if (notice) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [notice]);
+
   const handleDone = (text) => {
     setAdjusting(null);
     setTransferring(null);
@@ -134,6 +138,17 @@ export default function Inventario() {
     }
   };
 
+  const requestDelete = (r) => {
+    if (r.cantidad > 0) {
+      setNotice({
+        type: "warning",
+        text: `"${r.nombre}" tiene ${r.cantidad} ${r.cantidad === 1 ? "unidad" : "unidades"} en stock, Primero se debe vender o transferir para eliminar el inventario.`,
+      });
+      return;
+    }
+    setToDelete(r);
+  };
+
   const renderActions = (r) => (
     <>
       <button
@@ -153,7 +168,7 @@ export default function Inventario() {
         <ArrowLeftRight className="h-4 w-4" />
       </button>
       <button
-        onClick={() => setToDelete(r)}
+        onClick={() => requestDelete(r)}
         className={`${iconAction} hover:!text-brand-danger`}
         aria-label={`Quitar ${r.nombre} del inventario`}
         title="Quitar del inventario"

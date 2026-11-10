@@ -24,3 +24,7 @@ class Empleado(Base):
     sucursal: Mapped[Optional["Sucursal"]] = relationship(back_populates="empleados")
     usuario: Mapped[Optional["Usuario"]] = relationship(back_populates="empleado", uselist=False)
     ventas: Mapped[List["Venta"]] = relationship(back_populates="empleado")
+
+    @property
+    def correo(self) -> Optional[str]:
+        return self.usuario.correo if self.usuario else None

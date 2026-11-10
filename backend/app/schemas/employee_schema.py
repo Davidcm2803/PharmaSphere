@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 def _clean(v):
@@ -11,10 +11,16 @@ def _clean(v):
     return v
 
 
+def _clean_email(v):
+    v = _clean(v)
+    return v.lower() if isinstance(v, str) else v
+
+
 class EmployeeBase(BaseModel):
     nombre: str = Field(min_length=2, max_length=150)
     puesto: Optional[str] = Field(None, max_length=100)
     id_sucursal: int = Field(ge=1)
+    correo: Optional[EmailStr] = None
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -26,6 +32,11 @@ class EmployeeBase(BaseModel):
     def _blank_to_none(cls, v):
         return _clean(v)
 
+    @field_validator("correo", mode="before")
+    @classmethod
+    def _normalize_correo(cls, v):
+        return _clean_email(v)
+
 
 class EmployeeCreate(EmployeeBase):
     pass
@@ -36,11 +47,17 @@ class EmployeeUpdate(BaseModel):
     puesto: Optional[str] = Field(None, max_length=100)
     id_sucursal: Optional[int] = Field(None, ge=1)
     activo: Optional[bool] = None
+    correo: Optional[EmailStr] = None
 
     @field_validator("nombre", "puesto", mode="before")
     @classmethod
     def _clean_all(cls, v):
         return _clean(v)
+
+    @field_validator("correo", mode="before")
+    @classmethod
+    def _normalize_correo(cls, v):
+        return _clean_email(v)
 
 
 class EmployeeOut(BaseModel):
@@ -49,6 +66,7 @@ class EmployeeOut(BaseModel):
     id_empleado: int
     nombre: str
     puesto: Optional[str] = None
+    correo: Optional[str] = None
     id_sucursal: Optional[int] = None
     sucursal_nombre: Optional[str] = None
     activo: bool

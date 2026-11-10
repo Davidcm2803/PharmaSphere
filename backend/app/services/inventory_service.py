@@ -377,7 +377,7 @@ def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
                 id_producto=data.id_producto,
                 id_sucursal=data.id_destino,
                 cantidad=0,
-                stock_minimo=0,
+                stock_minimo=inv_origen.stock_minimo,
             )
             db.add(inv_destino)
 
