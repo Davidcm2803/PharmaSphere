@@ -1,8 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 import app.db.base  # noqa: F401  (registra todos los modelos)
 from app.core import cache
@@ -14,6 +14,7 @@ from app.models.product_model import Producto
 from app.models.purchase_model import Compra, DetalleCompra
 from app.models.supplier_model import Proveedor
 from app.schemas.purchase_schema import CompraCreate, CompraReceive
+from app.utils.pagination import PageParams, paginate
 
 
 class PurchaseError(Exception):
@@ -152,3 +153,98 @@ def recibir_compra(
     except Exception:
         db.rollback()
         raise
+
+
+def list_purchases(
+    db: Session,
+    *,
+    estado: str | None,
+    id_proveedor: int | None,
+    id_sucursal: int | None,
+    params: PageParams,
+) -> tuple[list[dict], int]:
+    n_productos = (
+        select(func.count(DetalleCompra.id_detallecompra))
+        .where(DetalleCompra.id_compra == Compra.id_compra)
+        .correlate(Compra)
+        .scalar_subquery()
+    )
+    stmt = (
+        select(Compra, Proveedor.nombre, Sucursal.nombre, n_productos)
+        .join(Proveedor, Proveedor.id_proveedor == Compra.id_proveedor)
+        .join(Sucursal, Sucursal.id_sucursal == Compra.id_sucursal)
+        .order_by(Compra.fecha.desc(), Compra.id_compra.desc())
+    )
+    if estado:
+        stmt = stmt.where(Compra.estado == estado)
+    if id_proveedor:
+        stmt = stmt.where(Compra.id_proveedor == id_proveedor)
+    if id_sucursal:
+        stmt = stmt.where(Compra.id_sucursal == id_sucursal)
+    rows, total = paginate(db, stmt, params)
+    items = [
+        {
+            "id_compra": c.id_compra,
+            "id_proveedor": c.id_proveedor,
+            "proveedor_nombre": prov,
+            "id_sucursal": c.id_sucursal,
+            "sucursal_nombre": suc,
+            "estado": c.estado,
+            "total": c.total,
+            "fecha": c.fecha,
+            "fecha_recepcion": c.fecha_recepcion,
+            "num_productos": n,
+        }
+        for c, prov, suc, n in rows
+    ]
+    return items, total
+
+
+def get_purchase(db: Session, id_compra: int) -> dict | None:
+    compra = db.scalar(
+        select(Compra)
+        .where(Compra.id_compra == id_compra)
+        .options(selectinload(Compra.detalles).joinedload(DetalleCompra.producto))
+    )
+    if compra is None:
+        return None
+    lotes = db.scalars(
+        select(Lote)
+        .where(Lote.id_compra == id_compra)
+        .options(joinedload(Lote.producto))
+        .order_by(Lote.fecha_vencimiento, Lote.id_lote)
+    ).unique()
+    return {
+        "id_compra": compra.id_compra,
+        "id_proveedor": compra.id_proveedor,
+        "proveedor_nombre": compra.proveedor.nombre,
+        "id_sucursal": compra.id_sucursal,
+        "sucursal_nombre": compra.sucursal.nombre,
+        "estado": compra.estado,
+        "total": compra.total,
+        "fecha": compra.fecha,
+        "fecha_recepcion": compra.fecha_recepcion,
+        "detalles": [
+            {
+                "id_producto": d.id_producto,
+                "nombre_producto": d.producto.nombre,
+                "cantidad": d.cantidad,
+                "costo_unitario": d.costo_unitario,
+                "subtotal": d.cantidad * d.costo_unitario,
+            }
+            for d in compra.detalles
+        ],
+        "lotes": [
+            {
+                "id_lote": l.id_lote,
+                "id_producto": l.id_producto,
+                "id_sucursal": l.id_sucursal,
+                "id_compra": l.id_compra,
+                "numero_lote": l.numero_lote,
+                "fecha_vencimiento": l.fecha_vencimiento,
+                "cantidad": l.cantidad,
+                "nombre_producto": l.producto.nombre,
+            }
+            for l in lotes
+        ],
+    }
