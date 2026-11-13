@@ -72,3 +72,43 @@ class LoteOut(BaseModel):
 class RecepcionOut(BaseModel):
     compra: CompraOut
     lotes: list[LoteOut]
+
+
+# Fila de la lista de compras (incluye nombres para no hacer más consultas en el frontend)
+class CompraListOut(BaseModel):
+    id_compra: int
+    id_proveedor: int
+    proveedor_nombre: str
+    id_sucursal: int
+    sucursal_nombre: str
+    estado: str
+    total: Decimal
+    fecha: datetime
+    fecha_recepcion: datetime | None
+    num_productos: int
+
+
+class DetalleCompraFullOut(BaseModel):
+    id_producto: int
+    nombre_producto: str
+    cantidad: int
+    costo_unitario: Decimal
+    subtotal: Decimal
+
+
+class LoteCompraOut(LoteOut):
+    nombre_producto: str
+
+
+class CompraDetalleOut(BaseModel):
+    id_compra: int
+    id_proveedor: int
+    proveedor_nombre: str
+    id_sucursal: int
+    sucursal_nombre: str
+    estado: str
+    total: Decimal
+    fecha: datetime
+    fecha_recepcion: datetime | None
+    detalles: list[DetalleCompraFullOut]
+    lotes: list[LoteCompraOut]
