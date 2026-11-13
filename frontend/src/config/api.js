@@ -35,6 +35,11 @@ export const ENDPOINTS = {
   INVENTORY_ADD: "/inventory/add", // POST { id_producto, id_sucursal, cantidad, stock_minimo, motivo? }
   INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
   INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
+  INVENTORY_EXPIRING: "/inventory/expiring", // GET ?days=30&id_sucursal -> lotes por vencer (admin y empleado)
+  INVENTORY_EXPIRED: "/inventory/expired", // GET ?id_sucursal -> lotes ya vencidos con stock
+
+  // Compras a proveedores (solo admin)
+  PURCHASES: "/purchases", // GET paginado ?estado&id_proveedor&id_sucursal | POST { id_proveedor, id_sucursal, detalles } | /{id}: GET | /{id}/receive: POST { lineas }
 
   // Compras online del cliente
   SALES: "/sales", // POST { id_sucursal, items: [{ id_producto, cantidad }], telefono?, cedula? } (rol cliente)
@@ -45,7 +50,7 @@ export const ENDPOINTS = {
   CUSTOMERS: "/customers", // GET lista (?q, ?cedula) | POST | /{id}: GET, PUT
   RECIPES: "/recipes", // GET lista | POST | /{id}: GET, PUT
 
-  // Reportes (solo admin) 
+  // Reportes (solo admin)
   REPORTS_SUMMARY: "/reports/summary", // GET KPIs
   REPORTS_SALES_BY_DAY: "/reports/sales-by-day", // GET ?desde&hasta&id_sucursal
   REPORTS_TOP_PRODUCTS: "/reports/top-products", // GET ?limit&orden=unidades|ingresos
