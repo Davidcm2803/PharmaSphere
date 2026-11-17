@@ -20,7 +20,9 @@ class Lote(Base):
             name="lote_id_producto_id_sucursal_numero_lote_key",
         ),
         CheckConstraint("cantidad >= 0", name="ck_lote_cantidad"),
+        CheckConstraint("cantidad_inicial >= 0", name="ck_lote_cantidad_inicial"),
         Index("idx_lote_producto", "id_producto"),
+        Index("idx_lote_sucursal_vencimiento", "id_sucursal", "fecha_vencimiento"),
         Index("idx_lote_vencimiento", "fecha_vencimiento"),
     )
 
@@ -31,6 +33,7 @@ class Lote(Base):
     numero_lote: Mapped[str] = mapped_column(String(100), nullable=False)
     fecha_vencimiento: Mapped[date] = mapped_column(Date, nullable=False)
     cantidad: Mapped[int] = mapped_column(nullable=False, default=0)
+    cantidad_inicial: Mapped[int] = mapped_column(nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
     # Relaciones

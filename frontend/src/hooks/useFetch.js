@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../config/api";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8010";
-
+// GET autenticado (manda el token JWT si existe).
+// Devuelve { data, error, loading, refetch }.
+// Si `path` es null/"" no hace la petición (útil cuando aún falta un parámetro).
 export default function useFetch(path) {
   const [tick, setTick] = useState(0);
   const [result, setResult] = useState({ key: null, data: null, error: null });
@@ -9,26 +11,29 @@ export default function useFetch(path) {
   const requestKey = `${path}|${tick}`;
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!path) return;
+    let cancelled = false;
 
-    fetch(`${API_URL}${path}`, { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Error ${res.status}`);
-        return res.json();
+    apiFetch(path)
+      .then((data) => {
+        if (!cancelled) setResult({ key: requestKey, data, error: null });
       })
-      .then((data) => setResult({ key: requestKey, data, error: null }))
       .catch((err) => {
-        if (err.name === "AbortError") return;
-        setResult({ key: requestKey, data: null, error: err.message });
+        if (!cancelled)
+          setResult({ key: requestKey, data: null, error: err.message });
       });
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [path, requestKey]);
 
+  const current = Boolean(path) && result.key === requestKey;
+
   return {
-    data: result.key === requestKey ? result.data : null,
-    error: result.key === requestKey ? result.error : null,
-    loading: result.key !== requestKey,
+    data: current ? result.data : null,
+    error: current ? result.error : null,
+    loading: Boolean(path) && !current,
     refetch: () => setTick((t) => t + 1),
   };
 }

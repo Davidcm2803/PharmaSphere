@@ -1,0 +1,124 @@
+export const API_URL =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8010/api";
+
+// Base del servidor sin el prefijo /api (para servir /static/...)
+export const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+// Convierte "/static/productos/x.jpg" en URL completa; si ya es http(s) la deja igual
+export const assetUrl = (path) =>
+  !path ? null : path.startsWith("http") ? path : `${SERVER_URL}${path}`;
+
+// Siempre debe coincidir con el prefijo del backend de app /api/auth)
+export const ENDPOINTS = {
+  AUTH_REGISTER: "/auth/register", // POST
+  AUTH_LOGIN: "/auth/login", // POST
+  AUTH_FIREBASE: "/auth/firebase", // POST { id_token, nombre? }
+  AUTH_ME: "/auth/me", // GET (requiere token)
+  AUTH_USERS: "/auth/users", // GET (solo admin)
+  PRODUCTS: "/products", // GET público | POST admin | /{id}: GET, PUT, DELETE
+  PRODUCT_IMAGE: "/products/image", // POST multipart (admin) -> { imagen_url }
+  CATEGORIES: "/categories", // GET público
+  SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
+  SUPPLIER_OPTIONS: "/suppliers/options",
+  AI_CHAT: "/ai/chat", // POST { pregunta, historial: [{ rol, contenido }] } -> { respuesta, fuentes }
+  AI_CONFIRMAR: "/ai/chat/confirm",
+  AI_CHAT_CLIENTE: "/ai/chat/cliente",
+
+  //Tickets admin
+  CASOS_ESCALADOS: "/casos-escalados",
+
+  // Sucursales -> /branches y /branches/{id}
+  BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}
+  BRANCH_OPTIONS: "/branches/options", // GET (cliente logueado): solo sucursales activas para elegir retiro
+
+  // Empleados (ligados a sucursal) -> /employees y /employees/{id}
+  EMPLOYEES: "/employees", // GET, POST | PUT, DELETE en /employees/{id}
+
+  // Inventario por sucursal
+  INVENTORY: "/inventory", // GET ?id_sucursal=1&low_stock=true
+  INVENTORY_MISSING: "/inventory/missing", // GET ?id_sucursal=1 -> productos sin fila en esa sucursal
+  INVENTORY_ADD: "/inventory/add", // POST { id_producto, id_sucursal, cantidad, stock_minimo, motivo? }
+  INVENTORY_ADJUST: "/inventory/adjust", // POST { id_producto, id_sucursal, cantidad, motivo }
+  INVENTORY_TRANSFER: "/inventory/transfer", // POST { id_producto, id_origen, id_destino, cantidad }
+  INVENTORY_EXPIRING: "/inventory/expiring", // GET ?days=30&id_sucursal -> lotes por vencer (admin y empleado)
+  INVENTORY_EXPIRED: "/inventory/expired", // GET ?id_sucursal -> lotes ya vencidos con stock
+
+  // Compras a proveedores (solo admin)
+  PURCHASES: "/purchases", // GET paginado ?estado&id_proveedor&id_sucursal | POST { id_proveedor, id_sucursal, detalles } | /{id}: GET | /{id}/receive: POST { lineas }
+
+  // Compras online del cliente
+  SALES: "/sales", // POST { id_sucursal, items: [{ id_producto, cantidad }], telefono?, cedula? } (rol cliente)
+  SALES_ME: "/sales/me", // GET: pedidos del cliente autenticado
+  CUSTOMER_ME: "/customers/me", // GET: perfil del cliente autenticado
+  SALES_TOP: "/sales/top-products", // GET público: más vendidos
+  SALES_COUNTER: "/sales/mostrador", // POST venta del POS (admin/empleado)
+  CUSTOMERS: "/customers", // GET lista (?q, ?cedula) | POST | /{id}: GET, PUT
+  RECIPES: "/recipes", // GET lista | POST | /{id}: GET, PUT
+
+  // Reportes (solo admin)
+  REPORTS_SUMMARY: "/reports/summary", // GET KPIs
+  REPORTS_SALES_BY_DAY: "/reports/sales-by-day", // GET ?desde&hasta&id_sucursal
+  REPORTS_TOP_PRODUCTS: "/reports/top-products", // GET ?limit&orden=unidades|ingresos
+  REPORTS_BRANCHES: "/reports/branches", // GET ranking de sucursales
+  REPORTS_MOST_VIEWED: "/reports/most-viewed", // GET ?limit
+  REPORTS_ALERTS: "/reports/alerts", // GET stock bajo / por vencer / vencidos
+  REPORTS_MOVEMENTS: "/reports/movements", // GET ?limit
+  REPORTS_EXPORT: "/reports/export", // GET CSV ?tipo=ventas|productos|sucursales|inventario
+};
+
+const TOKEN_KEY = "pharmasphere_token";
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
+export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+export async function apiFetch(
+  path,
+  { method = "GET", body, auth = true } = {},
+) {
+  const isForm = body instanceof FormData;
+  const headers = isForm ? {} : { "Content-Type": "application/json" };
+  const token = getToken();
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    // El backend siempre responde { success, status_code, message, details }
+    const error = new Error(
+      data?.message ?? "Error de conexión con el servidor",
+    );
+    error.status = res.status;
+    error.details = data?.details;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function apiDownload(path, filename) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const error = new Error(data?.message ?? "No se pudo descargar el archivo");
+    error.status = res.status;
+    throw error;
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

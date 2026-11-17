@@ -17,6 +17,9 @@ class Receta(Base):
         CheckConstraint(
             "estado IN ('vigente', 'usada', 'vencida')", name="ck_receta_estado"
         ),
+        CheckConstraint(
+            "vigencia_hasta IS NULL OR vigencia_hasta >= fecha", name="ck_receta_vigencia"
+        ),
         Index("idx_receta_cliente", "id_cliente"),
         Index("idx_receta_producto", "id_producto"),
     )

@@ -62,8 +62,8 @@ Table usuario {
   correo varchar [unique, not null]    // correo de acceso, sirve para ambos tipos de login
   nombre varchar                       // nombre para mostrar en el sistema
   rol varchar [note: "admin | empleado | cliente"]  // define que puede hacer el usuario
-  id_cliente int [ref: > cliente.id_cliente]    // solo si el usuario es un cliente
-  id_empleado int [ref: > empleado.id_empleado] // solo si el usuario es un empleado/admin
+  id_cliente int [unique, ref: > cliente.id_cliente]    // solo si el usuario es un cliente
+  id_empleado int [unique, ref: > empleado.id_empleado] // solo si el usuario es un empleado/admin
   activo boolean                       // false = acceso bloqueado, sin borrar el usuario
   created_at timestamp                 // fecha de creacion del usuario
 
@@ -154,6 +154,8 @@ Table receta {
   estado varchar [note: "vigente | usada | vencida"]  // estado actual de la receta
   archivo_url varchar                  // foto o escaneo de la receta, si la suben
   id_venta int [ref: > venta.id_venta, note: "venta en la que se uso la receta"]  // null hasta que se use
+
+  Note: "CHECK: vigencia_hasta IS NULL OR vigencia_hasta >= fecha"
 }
 
 // Historial / kardex de movimientos de stock
@@ -180,6 +182,20 @@ Table documento {
   contenido text                       // texto completo, si se guarda directo en la base
   ruta varchar                         // ruta o url del archivo original, si aplica
   indexado boolean                     // true si ya se genero su embedding en Qdrant
+  publico boolean                      // true = visible para el copiloto de clientes (fichas, FAQ). false = solo copiloto interno (manuales, politicas)
   id_usuario int [ref: > usuario.id_usuario]  // quien subio el documento
   created_at timestamp                 // fecha en que se subio
+}
+
+// Casos que el copiloto de cliente escala a un encargado humano
+// (sintomas graves, pedido explicito de hablar con alguien, receta/autorizacion que la IA no puede dar)
+Table caso_escalado {
+  id_caso int [pk, increment]          // identificador del caso
+  id_usuario int [ref: > usuario.id_usuario]     // usuario (cliente) que genero el caso
+  nivel varchar [note: "moderado | grave | emergencia"]  // severidad detectada (emergencia no llega a crear fila: se responde directo con numero de emergencias)
+  motivo varchar                       // por que se escalo (texto corto, ej. "reaccion alergica")
+  mensaje_usuario text                 // mensaje original del cliente que disparo el caso
+  estado varchar [note: "abierto | atendido | cerrado"]  // seguimiento del caso por el encargado
+  id_empleado_atiende int [ref: > empleado.id_empleado, note: "null hasta que un encargado lo toma"]  // quien lo atiende
+  created_at timestamp                 // fecha en que se genero el caso
 }

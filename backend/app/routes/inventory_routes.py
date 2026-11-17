@@ -1,8 +1,177 @@
-﻿from fastapi import APIRouter
+from datetime import date
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
+from app.dependencies.auth_dependencies import require_role
+from app.models.lot_model import Lote
+from app.models.user_model import Usuario
+from app.schemas.inventory_schema import (
+    InventoryItemOut,
+    LoteUpdateIn,
+    LoteVencimientoOut,
+    LoteWriteOffIn,
+    ProductoSinInventarioOut,
+    StockAddIn,
+    StockAdjustIn,
+    StockTransferIn,
+    StockTransferOut,
+)
+from app.schemas.purchase_schema import LoteOut
+from app.services import inventory_service
 
 router = APIRouter()
 
+# Admin y empleado operan el inventario
+_staff = require_role("admin", "empleado")
 
-@router.get("/")
-def list_inventory():
-    return {"message": "inventory endpoint working"}
+
+def _out(lote: Lote) -> LoteVencimientoOut:
+    datos = LoteOut.model_validate(lote).model_dump()
+    return LoteVencimientoOut(
+        **datos,
+        nombre_producto=lote.producto.nombre,
+        dias_para_vencer=(lote.fecha_vencimiento - date.today()).days,
+    )
+
+
+# Inventario filtrable
+@router.get("", response_model=List[InventoryItemOut])
+def list_inventory(
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    id_producto: Optional[int] = Query(None, ge=1),
+    q: Optional[str] = Query(None, max_length=100, description="Búsqueda por nombre de producto"),
+    low_stock: bool = Query(False, description="Solo productos por debajo del stock mínimo"),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return inventory_service.list_inventory(
+        db, id_sucursal=id_sucursal, id_producto=id_producto, q=q, low_stock=low_stock
+    )
+
+
+# Lotes por vencer / vencidos (FEFO)
+@router.get("/expiring", response_model=List[LoteVencimientoOut])
+def por_vencer(
+    days: int = Query(30, ge=1, le=3650),
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_por_vencer(db, days, id_sucursal)]
+
+
+@router.get("/expired", response_model=List[LoteVencimientoOut])
+def vencidos(
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_vencidos(db, id_sucursal)]
+
+
+# Productos que aún no están en el inventario de una sucursal
+@router.get("/missing", response_model=List[ProductoSinInventarioOut])
+def missing_products(
+    id_sucursal: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return inventory_service.list_products_without_inventory(db, id_sucursal)
+
+
+# Stock de un producto en cada sucursal activa
+@router.get("/product/{id_producto}", response_model=List[InventoryItemOut])
+def product_stock(
+    id_producto: int,
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return inventory_service.get_product_stock(db, id_producto)
+
+
+# Alta de un producto en una sucursal
+@router.post("/add", response_model=InventoryItemOut, status_code=201)
+def add_to_inventory(
+    data: StockAddIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return inventory_service.add_to_inventory(db, data, user.id_usuario)
+
+
+# Ajuste manual
+@router.post("/adjust", response_model=InventoryItemOut)
+def adjust_stock(
+    data: StockAdjustIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return inventory_service.adjust_stock(db, data, user.id_usuario)
+
+
+# Quitar un producto del inventario de una sucursal (solo con stock 0)
+@router.delete("/{id_inventario}", status_code=204)
+def delete_from_inventory(
+    id_inventario: int,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    inventory_service.delete_from_inventory(db, id_inventario, user.id_usuario)
+
+
+# Transferencia entre sucursales
+@router.post("/transfer", response_model=StockTransferOut)
+def transfer_stock(
+    data: StockTransferIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return inventory_service.transfer_stock(db, data, user.id_usuario)
+
+
+# Da de baja (stock -> 0) todos los lotes ya vencidos
+@router.post("/expired/write-off")
+def baja_vencidos(
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    n = inventory_service.dar_de_baja_vencidos(db, user.id_usuario, id_sucursal)
+    return {"lotes_dados_de_baja": n}
+
+
+# --- Gestión de lotes -------------------------------------------------------
+# Lotes con stock de un producto en una sucursal
+@router.get("/lots", response_model=List[LoteVencimientoOut])
+def lotes_producto(
+    id_producto: int = Query(..., ge=1),
+    id_sucursal: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_de_producto(db, id_producto, id_sucursal)]
+
+
+# Corregir número o vencimiento de un lote (motivo obligatorio)
+@router.patch("/lots/{id_lote}", response_model=LoteVencimientoOut)
+def editar_lote(
+    id_lote: int,
+    data: LoteUpdateIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return _out(inventory_service.update_lot(db, id_lote, data, user.id_usuario))
+
+
+# Dar de baja unidades de un lote (vencido, dañado, retiro...)
+@router.post("/lots/{id_lote}/write-off", response_model=LoteVencimientoOut)
+def baja_lote(
+    id_lote: int,
+    data: LoteWriteOffIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return _out(inventory_service.write_off_lot(db, id_lote, data, user.id_usuario))

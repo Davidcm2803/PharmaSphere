@@ -7,11 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-
 # PyTorch CPU-only: evita ~3GB de paquetes CUDA innecesarios (no hay GPU en el contenedor)
 RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 
+COPY requirements-rag.txt .
+RUN pip install --no-cache-dir -r requirements-rag.txt
+
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

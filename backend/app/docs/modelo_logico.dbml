@@ -1,0 +1,224 @@
+// PharmaSphere - MODELO LOGICO
+// Entidades, atributos, identificadores y relaciones con nombre y cardinalidad.
+// Sin tamanos, indices ni detalles de motor. Tipos logicos:
+//   Entero | Decimal | Texto | TextoLargo | Fecha | FechaHora | Booleano
+// Atributo sin [not null] = opcional. [pk] = identificador. Las columnas id_* que no son pk son llaves foraneas.
+// Pegar en https://dbdiagram.io para ver el diagrama.
+
+Table sucursal {
+  id_sucursal Entero [pk]
+  nombre Texto [not null]
+  direccion Texto
+  telefono Texto
+  activo Booleano [not null]
+  created_at FechaHora [not null]
+  Note: 'Local fisico de la farmacia donde hay stock y se vende.'
+}
+
+Table proveedor {
+  id_proveedor Entero [pk]
+  nombre Texto [not null]
+  contacto Texto
+  telefono Texto
+  correo Texto
+  activo Booleano [not null]
+  created_at FechaHora [not null]
+  Note: 'Empresa que abastece productos.'
+}
+
+Table producto {
+  id_producto Entero [pk]
+  nombre Texto [not null]
+  descripcion Texto
+  categoria Texto
+  precio Decimal [not null]
+  costo Decimal [not null]
+  requiere_receta Booleano [not null]
+  imagen_url Texto
+  activo Booleano [not null]
+  id_proveedor Entero [note: 'FK opcional: proveedor principal']
+  created_at FechaHora [not null]
+  updated_at FechaHora [not null]
+  Note: 'Articulo del catalogo. precio > 0, costo >= 0.'
+}
+
+Table empleado {
+  id_empleado Entero [pk]
+  nombre Texto [not null]
+  puesto Texto
+  id_sucursal Entero [not null, note: 'FK obligatoria']
+  activo Booleano [not null]
+  created_at FechaHora [not null]
+  Note: 'Persona que trabaja en una sucursal.'
+}
+
+Table cliente {
+  id_cliente Entero [pk]
+  nombre Texto [not null]
+  cedula Texto [unique, note: 'identificador alterno']
+  telefono Texto
+  correo Texto [unique, note: 'identificador alterno']
+  direccion Texto
+  created_at FechaHora [not null]
+  Note: 'Persona que compra o presenta recetas.'
+}
+
+Table usuario {
+  id_usuario Entero [pk]
+  firebase_uid Texto [unique]
+  password_hash Texto
+  correo Texto [unique, not null]
+  nombre Texto
+  rol Texto [not null, note: 'admin | empleado | cliente']
+  id_cliente Entero [note: 'FK opcional: solo si rol = cliente']
+  id_empleado Entero [note: 'FK opcional: solo si rol = empleado o admin']
+  activo Booleano [not null]
+  created_at FechaHora [not null]
+  Note: 'Cuenta de acceso. Regla: debe tener firebase_uid o password_hash.'
+}
+
+Table inventario {
+  id_inventario Entero [pk]
+  id_producto Entero [not null]
+  id_sucursal Entero [not null]
+  cantidad Entero [not null]
+  stock_minimo Entero [not null]
+  Note: 'Existencia de un producto en una sucursal. Unico por (producto, sucursal). Entidad asociativa N:M.'
+}
+
+Table compra {
+  id_compra Entero [pk]
+  id_proveedor Entero [not null]
+  id_sucursal Entero [not null]
+  id_usuario Entero [not null]
+  fecha FechaHora [not null]
+  fecha_recepcion FechaHora [note: 'vacia mientras este pendiente']
+  estado Texto [not null, note: 'pendiente | recibida | cancelada']
+  total Decimal [not null]
+  Note: 'Orden de compra a un proveedor.'
+}
+
+Table detallecompra {
+  id_detallecompra Entero [pk]
+  id_compra Entero [not null]
+  id_producto Entero [not null]
+  cantidad Entero [not null]
+  costo_unitario Decimal [not null]
+  Note: 'Linea de una compra. Entidad asociativa compra-producto.'
+}
+
+Table lote {
+  id_lote Entero [pk]
+  id_producto Entero [not null]
+  id_sucursal Entero [not null]
+  id_compra Entero [note: 'FK opcional: vacia si viene del seed']
+  numero_lote Texto [not null]
+  fecha_vencimiento Fecha [not null]
+  cantidad Entero [not null]
+  created_at FechaHora [not null]
+  Note: 'Tanda de un producto con fecha de vencimiento. Unico por (producto, sucursal, numero_lote).'
+}
+
+Table venta {
+  id_venta Entero [pk]
+  fecha FechaHora [not null]
+  id_sucursal Entero [not null]
+  id_empleado Entero [note: 'FK opcional: vacia en ventas online']
+  id_cliente Entero [note: 'FK opcional: vacia en mostrador anonimo']
+  total Decimal [not null]
+  tipo Texto [not null, note: 'online | mostrador']
+  estado Texto [not null, note: 'pendiente | pagada | retirada | cancelada']
+  metodo_pago Texto
+  tarjeta_ultimos_4 Texto
+  Note: 'Transaccion de venta, en tienda en linea o en mostrador.'
+}
+
+Table detalleventa {
+  id_detalleventa Entero [pk]
+  id_venta Entero [not null]
+  id_producto Entero [not null]
+  cantidad Entero [not null]
+  precio_unitario Decimal [not null]
+  Note: 'Linea de una venta. Guarda el precio del momento. Entidad asociativa venta-producto.'
+}
+
+Table receta {
+  id_receta Entero [pk]
+  id_cliente Entero [not null]
+  medico Texto [not null]
+  id_producto Entero [not null]
+  cantidad Entero [not null]
+  fecha Fecha [not null]
+  vigencia_hasta Fecha [not null]
+  estado Texto [not null, note: 'vigente | usada | vencida']
+  archivo_url Texto
+  id_venta Entero [note: 'FK opcional: vacia hasta que se use']
+  Note: 'Receta medica de un cliente para un producto.'
+}
+
+Table movimiento_inventario {
+  id_movimiento Entero [pk]
+  id_producto Entero [not null]
+  id_sucursal Entero [not null]
+  id_lote Entero [note: 'FK opcional']
+  tipo Texto [not null, note: 'venta | compra | ajuste | transferencia_entrada | transferencia_salida | vencimiento']
+  cantidad Entero [not null, note: 'positivo entra, negativo sale']
+  motivo Texto
+  id_usuario Entero [not null]
+  id_venta Entero [note: 'FK opcional']
+  id_compra Entero [note: 'FK opcional']
+  fecha FechaHora [not null]
+  Note: 'Kardex: historial de cambios de stock.'
+}
+
+Table documento {
+  id_documento Entero [pk]
+  titulo Texto [not null]
+  tipo Texto [not null]
+  contenido TextoLargo
+  ruta Texto
+  indexado Booleano [not null]
+  id_usuario Entero [not null]
+  created_at FechaHora [not null]
+  Note: 'Documento fuente para el asistente de IA (RAG).'
+}
+
+// ---------- Relaciones (verbo + cardinalidad hijo:padre) ----------
+// "opcional" = el hijo puede existir sin padre (FK nula)
+
+Ref proveedor_suministra_producto: producto.id_proveedor > proveedor.id_proveedor // N:1 opcional. Un proveedor suministra muchos productos
+Ref sucursal_emplea_empleado: empleado.id_sucursal > sucursal.id_sucursal // N:1. Una sucursal emplea muchos empleados
+Ref cliente_tiene_usuario: usuario.id_cliente > cliente.id_cliente // N:1 opcional (en la practica 1:1)
+Ref empleado_tiene_usuario: usuario.id_empleado > empleado.id_empleado // N:1 opcional (en la practica 1:1)
+
+Ref producto_se_cuenta_en_inventario: inventario.id_producto > producto.id_producto // N:1. Un producto tiene una fila por sucursal
+Ref sucursal_guarda_inventario: inventario.id_sucursal > sucursal.id_sucursal // N:1. Una sucursal guarda muchos productos
+
+Ref proveedor_recibe_compra: compra.id_proveedor > proveedor.id_proveedor // N:1
+Ref sucursal_recibe_compra: compra.id_sucursal > sucursal.id_sucursal // N:1
+Ref usuario_registra_compra: compra.id_usuario > usuario.id_usuario // N:1
+Ref compra_contiene_detallecompra: detallecompra.id_compra > compra.id_compra // N:1. Una compra tiene 1 o mas lineas
+Ref producto_aparece_en_detallecompra: detallecompra.id_producto > producto.id_producto // N:1
+
+Ref producto_se_agrupa_en_lote: lote.id_producto > producto.id_producto // N:1
+Ref sucursal_almacena_lote: lote.id_sucursal > sucursal.id_sucursal // N:1
+Ref compra_genera_lote: lote.id_compra > compra.id_compra // N:1 opcional
+
+Ref sucursal_despacha_venta: venta.id_sucursal > sucursal.id_sucursal // N:1
+Ref empleado_atiende_venta: venta.id_empleado > empleado.id_empleado // N:1 opcional
+Ref cliente_realiza_venta: venta.id_cliente > cliente.id_cliente // N:1 opcional
+Ref venta_contiene_detalleventa: detalleventa.id_venta > venta.id_venta // N:1. Una venta tiene 1 o mas lineas
+Ref producto_aparece_en_detalleventa: detalleventa.id_producto > producto.id_producto // N:1
+
+Ref cliente_presenta_receta: receta.id_cliente > cliente.id_cliente // N:1
+Ref producto_ampara_receta: receta.id_producto > producto.id_producto // N:1
+Ref venta_consume_receta: receta.id_venta > venta.id_venta // N:1 opcional
+
+Ref producto_registra_movimiento: movimiento_inventario.id_producto > producto.id_producto // N:1
+Ref sucursal_registra_movimiento: movimiento_inventario.id_sucursal > sucursal.id_sucursal // N:1
+Ref lote_afecta_movimiento: movimiento_inventario.id_lote > lote.id_lote // N:1 opcional
+Ref usuario_ejecuta_movimiento: movimiento_inventario.id_usuario > usuario.id_usuario // N:1
+Ref venta_origina_movimiento: movimiento_inventario.id_venta > venta.id_venta // N:1 opcional
+Ref compra_origina_movimiento: movimiento_inventario.id_compra > compra.id_compra // N:1 opcional
+
+Ref usuario_sube_documento: documento.id_usuario > usuario.id_usuario // N:1
