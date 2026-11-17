@@ -48,17 +48,21 @@ def tienda(client, admin):
     amoxicilina = producto(
         nombre="Amoxicilina 500mg", categoria="Antibioticos", precio=3500, costo=1900, requiere_receta=True
     )
+    vence = (date.today() + timedelta(days=365)).isoformat()
     for prod, cantidad in ((paracetamol, 10), (amoxicilina, 5)):
-        client.post(
+        resp = client.post(
             "/api/inventory/adjust",
             json={
                 "id_producto": prod["id_producto"],
                 "id_sucursal": sucursal["id_sucursal"],
                 "cantidad": cantidad,
                 "motivo": "Stock inicial",
+                "numero_lote": "L-INICIAL",
+                "fecha_vencimiento": vence,
             },
             headers=h,
         )
+        assert resp.status_code == 200, resp.text
     return {
         "sucursal": sucursal["id_sucursal"],
         "paracetamol": paracetamol["id_producto"],
