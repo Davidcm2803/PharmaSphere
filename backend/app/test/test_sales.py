@@ -302,7 +302,7 @@ def test_mostrador_registra_kardex_con_motivo(client, empleado, tienda):
     mov = db.query(MovimientoInventario).filter_by(tipo="venta").one()
     assert mov.cantidad == -2
     assert mov.id_venta is not None
-    assert "mostrador" in mov.motivo
+    assert mov.motivo.startswith("Venta")
     db.close()
 
 

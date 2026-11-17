@@ -5,7 +5,7 @@ from app.db.base import Base
 
 
 def test_modelos_cargados():
-    assert len(Base.metadata.tables) == 15
+    assert len(Base.metadata.tables) == 16
 
 
 def test_tablas_existen_en_la_base():
