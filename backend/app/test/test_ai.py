@@ -74,7 +74,7 @@ def qdrant_falso(monkeypatch):
     monkeypatch.setattr(
         vector_store,
         "search",
-        lambda name, vector, limit=3: [
+        lambda name, vector, limit=3, filtro=None: [
             {"id": k, "score": 0.9, "payload": v["payload"]} for k, v in list(puntos.items())[:limit]
         ],
     )
@@ -553,11 +553,19 @@ def test_chat_modo_voz_pide_respuestas_cortas(client, monkeypatch):
 
 #  Copilot: ingreso de stock con confirmacion 
 
+_ARGS_INGRESO = {
+    "nombre_producto": "Paracetamol 500 mg",
+    "cantidad": 40,
+    "numero_lote": "LT-COPILOT-1",
+    "fecha_vencimiento": (date.today() + timedelta(days=365)).isoformat(),
+}
+
+
 def _preparar(client, monkeypatch, headers, args=None):
     llamadas = _llm_falso(
         monkeypatch,
         [
-            _pide("preparar_ingreso_stock", args or {"nombre_producto": "Paracetamol 500 mg", "cantidad": 40}),
+            _pide("preparar_ingreso_stock", args or _ARGS_INGRESO),
             _texto("Voy a agregar 40 unidades. ¿Confirmas?"),
         ],
     )
@@ -657,9 +665,7 @@ def test_ingreso_con_varias_sucursales_pide_la_sucursal(client, monkeypatch):
     assert r.json()["accion"] is None
     assert "falta_sucursal" in _contenido_herramienta(llamadas)
 
-    r2, _ = _preparar(
-        client, monkeypatch, h, {"nombre_producto": "Paracetamol 500 mg", "cantidad": 40, "sucursal": "norte"}
-    )
+    r2, _ = _preparar(client, monkeypatch, h, {**_ARGS_INGRESO, "sucursal": "norte"})
     assert "Norte" in r2.json()["accion"]["resumen"]
 
 
@@ -681,6 +687,36 @@ def test_ingreso_de_producto_inexistente_no_genera_accion(client, monkeypatch):
     )
     assert r.json()["accion"] is None
     assert "producto_no_encontrado" in _contenido_herramienta(llamadas)
+
+
+def test_ingreso_sin_lote_pide_los_datos_y_no_genera_accion(client, monkeypatch):
+    _sembrar_inventario()
+    r, llamadas = _preparar(
+        client, monkeypatch, _h_admin(client), {"nombre_producto": "Paracetamol 500 mg", "cantidad": 40}
+    )
+    assert r.json()["accion"] is None
+    assert "falta_lote" in _contenido_herramienta(llamadas)
+    assert _stock_total() == 65
+
+
+def test_ingreso_con_vencimiento_pasado_no_genera_accion(client, monkeypatch):
+    _sembrar_inventario()
+    args = {**_ARGS_INGRESO, "fecha_vencimiento": (date.today() - timedelta(days=1)).isoformat()}
+    r, llamadas = _preparar(client, monkeypatch, _h_admin(client), args)
+    assert r.json()["accion"] is None
+    assert "error" in _contenido_herramienta(llamadas)
+    assert _stock_total() == 65
+
+
+def test_confirmar_ingreso_crea_el_lote_indicado(client, monkeypatch):
+    _sembrar_inventario()
+    h = _h_admin(client)
+    token = _preparar(client, monkeypatch, h)[0].json()["accion"]["token"]
+    assert client.post("/api/ai/chat/confirm", json={"token": token}, headers=h).status_code == 200
+    db = TestingSessionLocal()
+    lote = db.scalars(select(Lote).where(Lote.numero_lote == _ARGS_INGRESO["numero_lote"])).first()
+    db.close()
+    assert lote is not None and lote.cantidad == 40
 
 
 def test_empleado_puede_preparar_y_confirmar_un_ingreso(client, monkeypatch):

@@ -71,11 +71,14 @@ export default function PuntoDeVenta() {
 
   const changeBranch = (value) => {
     setSelectedBranch(value);
+    setCart([]);
+    setReceived("");
     try {
       localStorage.setItem(BRANCH_KEY, value);
     } catch {
       // sin localStorage: solo vale para esta sesión
     }
+    focusSearch();
   };
 
   // Productos
@@ -83,7 +86,7 @@ export default function PuntoDeVenta() {
   const [active, setActive] = useState(0);
   const parsed = parseSearch(search);
   const term = useDebounced(parsed.text, 200);
-  const products = usePuntoDeVentaProductos(term);
+  const products = usePuntoDeVentaProductos(term, branchId);
   const productItems = products.data?.items ?? [];
   const activeIndex = Math.min(active, Math.max(productItems.length - 1, 0));
 

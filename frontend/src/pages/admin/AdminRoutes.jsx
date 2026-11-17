@@ -16,6 +16,8 @@ import Ventas from "./Ventas";
 import VentaDetalle from "./VentaDetalle";
 import Clientes from "./Clientes";
 import Recetas from "./Recetas";
+import CasosEscalados from "./CasosEscalados";
+import Vencimientos from "./Vencimientos";
 
 function AdminHome() {
   const { user } = useAuth();
@@ -34,7 +36,8 @@ export default function AdminRoutes() {
           <Route path="punto-de-venta" element={<PuntoDeVenta />} />
           <Route path="proveedores" element={<Proveedores />} />
           <Route path="recetas" element={<Recetas />} />
-          <Route path="vencimientos" element={<Placeholder title="Vencimientos" />} />
+          <Route path="vencimientos" element={<Vencimientos />} />
+          <Route path="casos-escalados" element={<CasosEscalados />} />
         </Route>
 
         <Route element={<ProtectedRoute roles={["admin"]} />}>

@@ -7,7 +7,7 @@ import CheckoutForm, {
 } from "../../components/layout/CheckoutForm";
 import CheckoutItems from "../../components/layout/CheckoutItems";
 import Alert from "../../components/ui/Alert";
-import Button from "../../components/Ui/Button";
+import Button from "../../components/ui/Button";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useBranchOptions } from "../../hooks/useBranches";

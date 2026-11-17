@@ -21,6 +21,11 @@ export const ENDPOINTS = {
   SUPPLIERS: "/suppliers", // GET lista | POST | /{id}: PUT, DELETE
   SUPPLIER_OPTIONS: "/suppliers/options",
   AI_CHAT: "/ai/chat", // POST { pregunta, historial: [{ rol, contenido }] } -> { respuesta, fuentes }
+  AI_CONFIRMAR: "/ai/chat/confirm",
+  AI_CHAT_CLIENTE: "/ai/chat/cliente",
+
+  //Tickets admin
+  CASOS_ESCALADOS: "/casos-escalados",
 
   // Sucursales -> /branches y /branches/{id}
   BRANCHES: "/branches", // GET, POST | PUT, DELETE en /branches/{id}

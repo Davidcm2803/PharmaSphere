@@ -12,9 +12,11 @@ from app.db.session import engine
 from app.middlewares.auth_middleware import AuthMiddleware
 from app.middlewares.error_handler import register_exception_handlers
 from app.routes import (
+    ai_cliente_routes,
     ai_routes,
     auth_routes,
     branches_routes,
+    casos_escalados_routes,
     customers_routes,
     employees_routes,
     inventory_routes,
@@ -24,7 +26,6 @@ from app.routes import (
     reports_routes,
     sales_routes,
     suppliers_routes,
-    recipes_routes,
 )
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -71,12 +72,14 @@ app.include_router(branches_routes.router, prefix="/api/branches", tags=["branch
 app.include_router(employees_routes.router, prefix="/api/employees", tags=["employees"])
 app.include_router(inventory_routes.router, prefix="/api/inventory", tags=["inventory"])
 app.include_router(sales_routes.router, prefix="/api/sales", tags=["sales"])
+app.include_router(casos_escalados_routes.router, prefix="/api/casos-escalados", tags=["Casos Escalados"])
 app.include_router(purchase_routes.router, prefix="/api/purchases", tags=["purchases"])
 app.include_router(suppliers_routes.router, prefix="/api/suppliers", tags=["suppliers"])
 app.include_router(customers_routes.router, prefix="/api/customers", tags=["customers"])
 app.include_router(recipes_routes.router, prefix="/api/recipes", tags=["recipes"])
 app.include_router(reports_routes.router, prefix="/api/reports", tags=["reports"])
 app.include_router(ai_routes.router, prefix="/api/ai", tags=["ai"])
+app.include_router(ai_cliente_routes.router, prefix="/api/ai", tags=["ai-cliente"])
 
 
 @app.get("/health")

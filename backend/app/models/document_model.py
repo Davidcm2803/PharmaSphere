@@ -19,6 +19,7 @@ class Documento(Base):
     contenido: Mapped[Optional[str]] = mapped_column(Text)
     ruta: Mapped[Optional[str]] = mapped_column(String(500))
     indexado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    publico: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     id_usuario: Mapped[Optional[int]] = mapped_column(ForeignKey("usuario.id_usuario"))
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 

@@ -1,5 +1,5 @@
 import { Package } from "lucide-react";
-import Button from "../../Ui/Button";
+import Button from "../../ui/Button";
 
 // Tarjeta de confirmacion: nada se guarda hasta que el usuario aprueba
 export default function CopilotAction({ accion, confirming, onConfirm, onCancel }) {

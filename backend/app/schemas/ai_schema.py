@@ -84,3 +84,17 @@ class ConfirmResponse(BaseModel):
     sucursal: str
     cantidad: int
     stock_nuevo: int
+
+class DocumentoPublicoIn(BaseModel):
+    publico: bool
+    
+class EscalamientoOut(BaseModel):
+    referencia: int
+    nivel: Literal["moderado", "grave"]
+
+
+class ChatClienteResponse(BaseModel):
+    respuesta: str
+    fuentes: List[ChatSource]
+    nivel_alerta: Literal["leve", "moderado", "grave", "emergencia"]
+    escalamiento: Optional[EscalamientoOut] = None

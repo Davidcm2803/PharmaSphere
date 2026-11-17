@@ -66,6 +66,89 @@ def _product(db: Session, id_producto: int) -> Producto:
     return producto
 
 
+def _validar_vencimiento(fecha: date) -> None:
+    if fecha <= date.today():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No se pueden ingresar lotes ya vencidos")
+
+
+def _upsert_lote(
+    db: Session,
+    *,
+    id_producto: int,
+    id_sucursal: int,
+    numero_lote: str,
+    fecha_vencimiento: date,
+    cantidad: int,
+) -> Lote:
+    """Suma al lote si ya existe (mismo vencimiento) o lo crea. Sin commit ni movimiento."""
+    lote = db.scalar(
+        select(Lote)
+        .where(
+            Lote.id_producto == id_producto,
+            Lote.id_sucursal == id_sucursal,
+            Lote.numero_lote == numero_lote,
+        )
+        .with_for_update()
+    )
+    if lote is not None:
+        if lote.fecha_vencimiento != fecha_vencimiento:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, f"El lote {numero_lote} ya existe con otro vencimiento"
+            )
+        lote.cantidad += cantidad
+        lote.cantidad_inicial += cantidad
+        return lote
+    lote = Lote(
+        id_producto=id_producto,
+        id_sucursal=id_sucursal,
+        numero_lote=numero_lote,
+        fecha_vencimiento=fecha_vencimiento,
+        cantidad=cantidad,
+        cantidad_inicial=cantidad,
+    )
+    db.add(lote)
+    db.flush()
+    return lote
+
+
+def _retirar_lotes(
+    db: Session,
+    *,
+    id_producto: int,
+    id_sucursal: int,
+    cantidad: int,
+    id_lote: int | None = None,
+    solo_vigentes: bool = False,
+) -> list[tuple[Lote, int]]:
+    """Resta de los lotes que vencen primero (los ya vencidos van antes). Sin commit."""
+    q = select(Lote).where(
+        Lote.id_producto == id_producto,
+        Lote.id_sucursal == id_sucursal,
+        Lote.cantidad > 0,
+    )
+    if id_lote is not None:
+        q = q.where(Lote.id_lote == id_lote)
+    if solo_vigentes:
+        q = q.where(Lote.fecha_vencimiento >= date.today())
+    lotes = db.scalars(q.order_by(Lote.fecha_vencimiento, Lote.id_lote).with_for_update()).all()
+
+    disponible = sum(l.cantidad for l in lotes)
+    if disponible < cantidad:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Stock en lotes insuficiente: hay {disponible}, se pidieron {cantidad}",
+        )
+    restante, consumos = cantidad, []
+    for lote in lotes:
+        if restante == 0:
+            break
+        tomar = min(lote.cantidad, restante)
+        lote.cantidad -= tomar
+        consumos.append((lote, tomar))
+        restante -= tomar
+    return consumos
+
+
 # consultas
 def list_inventory(
     db: Session,
@@ -75,8 +158,41 @@ def list_inventory(
     q: Optional[str],
     low_stock: bool,
 ) -> List[dict]:
+    # Vencimiento más cercano entre los lotes con stock de ese producto y sucursal
+    proximo = (
+        select(func.min(Lote.fecha_vencimiento))
+        .where(
+            Lote.id_producto == Inventario.id_producto,
+            Lote.id_sucursal == Inventario.id_sucursal,
+            Lote.cantidad > 0,
+        )
+        .correlate(Inventario)
+        .scalar_subquery()
+    )
+    lot_total = (
+        select(func.coalesce(func.sum(Lote.cantidad), 0))
+        .where(
+            Lote.id_producto == Inventario.id_producto,
+            Lote.id_sucursal == Inventario.id_sucursal,
+        )
+        .correlate(Inventario)
+        .scalar_subquery()
+    )
+    lot_n = (
+        select(func.count(Lote.id_lote))
+        .where(
+            Lote.id_producto == Inventario.id_producto,
+            Lote.id_sucursal == Inventario.id_sucursal,
+            Lote.cantidad > 0,
+        )
+        .correlate(Inventario)
+        .scalar_subquery()
+    )
     stmt = (
-        select(Inventario, Producto.nombre, Producto.categoria, Sucursal.nombre)
+        select(
+            Inventario, Producto.nombre, Producto.categoria, Sucursal.nombre,
+            proximo, lot_total, lot_n,
+        )
         .join(Producto, Producto.id_producto == Inventario.id_producto)
         .join(Sucursal, Sucursal.id_sucursal == Inventario.id_sucursal)
         .where(Producto.activo.is_(True))
@@ -92,15 +208,20 @@ def list_inventory(
     stmt = stmt.order_by(func.lower(Producto.nombre), Sucursal.nombre)
 
     return [
-        _item(
-            inv,
-            id_producto=inv.id_producto,
-            producto_nombre=p_nombre,
-            categoria=categoria,
-            id_sucursal=inv.id_sucursal,
-            sucursal_nombre=s_nombre,
-        )
-        for inv, p_nombre, categoria, s_nombre in db.execute(stmt).all()
+        {
+            **_item(
+                inv,
+                id_producto=inv.id_producto,
+                producto_nombre=p_nombre,
+                categoria=categoria,
+                id_sucursal=inv.id_sucursal,
+                sucursal_nombre=s_nombre,
+            ),
+            "proximo_vencimiento": prox,
+            "lotes_cantidad": int(lotes_sum or 0),
+            "lotes_con_stock": int(lotes_n or 0),
+        }
+        for inv, p_nombre, categoria, s_nombre, prox, lotes_sum, lotes_n in db.execute(stmt).all()
     ]
 
 
@@ -205,17 +326,46 @@ def adjust_stock(db: Session, data: StockAdjustIn, id_usuario: int) -> dict:
             inv.stock_minimo = data.stock_minimo
 
         # Solo hay movimiento si cambió la cantidad (cambiar el mínimo no mueve stock)
-        if data.cantidad != 0:
+        if data.cantidad > 0:
+            _validar_vencimiento(data.fecha_vencimiento)
+            lote = _upsert_lote(
+                db,
+                id_producto=data.id_producto,
+                id_sucursal=data.id_sucursal,
+                numero_lote=data.numero_lote,
+                fecha_vencimiento=data.fecha_vencimiento,
+                cantidad=data.cantidad,
+            )
             db.add(
                 MovimientoInventario(
                     id_producto=data.id_producto,
                     id_sucursal=data.id_sucursal,
+                    id_lote=lote.id_lote,
                     tipo="ajuste",
                     cantidad=data.cantidad,
                     motivo=data.motivo,
                     id_usuario=id_usuario,
                 )
             )
+        elif data.cantidad < 0:
+            for lote, tomar in _retirar_lotes(
+                db,
+                id_producto=data.id_producto,
+                id_sucursal=data.id_sucursal,
+                cantidad=-data.cantidad,
+                id_lote=data.id_lote,
+            ):
+                db.add(
+                    MovimientoInventario(
+                        id_producto=data.id_producto,
+                        id_sucursal=data.id_sucursal,
+                        id_lote=lote.id_lote,
+                        tipo="ajuste",
+                        cantidad=-tomar,
+                        motivo=data.motivo,
+                        id_usuario=id_usuario,
+                    )
+                )
         db.commit()
         cache.invalidate_stock()
     except IntegrityError:
@@ -265,10 +415,20 @@ def add_to_inventory(db: Session, data: StockAddIn, id_usuario: int) -> dict:
         db.add(inv)
 
         if data.cantidad > 0:
+            _validar_vencimiento(data.fecha_vencimiento)
+            lote = _upsert_lote(
+                db,
+                id_producto=data.id_producto,
+                id_sucursal=data.id_sucursal,
+                numero_lote=data.numero_lote,
+                fecha_vencimiento=data.fecha_vencimiento,
+                cantidad=data.cantidad,
+            )
             db.add(
                 MovimientoInventario(
                     id_producto=data.id_producto,
                     id_sucursal=data.id_sucursal,
+                    id_lote=lote.id_lote,
                     tipo="ajuste",
                     cantidad=data.cantidad,
                     motivo=data.motivo or "Alta de producto en sucursal",
@@ -385,30 +545,48 @@ def transfer_stock(db: Session, data: StockTransferIn, id_usuario: int) -> dict:
             )
             db.add(inv_destino)
 
+        consumos = _retirar_lotes(
+            db,
+            id_producto=data.id_producto,
+            id_sucursal=data.id_origen,
+            cantidad=data.cantidad,
+            solo_vigentes=True,
+        )
         inv_origen.cantidad -= data.cantidad
         inv_destino.cantidad += data.cantidad
 
         base = data.motivo or "Transferencia entre sucursales"
-        db.add_all(
-            [
-                MovimientoInventario(
-                    id_producto=data.id_producto,
-                    id_sucursal=data.id_origen,
-                    tipo="transferencia_salida",
-                    cantidad=-data.cantidad,
-                    motivo=f"{base} → {destino.nombre}"[:255],
-                    id_usuario=id_usuario,
-                ),
-                MovimientoInventario(
-                    id_producto=data.id_producto,
-                    id_sucursal=data.id_destino,
-                    tipo="transferencia_entrada",
-                    cantidad=data.cantidad,
-                    motivo=f"{base} ← {origen.nombre}"[:255],
-                    id_usuario=id_usuario,
-                ),
-            ]
-        )
+        for lote, tomar in consumos:
+            lote_dest = _upsert_lote(
+                db,
+                id_producto=data.id_producto,
+                id_sucursal=data.id_destino,
+                numero_lote=lote.numero_lote,
+                fecha_vencimiento=lote.fecha_vencimiento,
+                cantidad=tomar,
+            )
+            db.add_all(
+                [
+                    MovimientoInventario(
+                        id_producto=data.id_producto,
+                        id_sucursal=data.id_origen,
+                        id_lote=lote.id_lote,
+                        tipo="transferencia_salida",
+                        cantidad=-tomar,
+                        motivo=f"{base} → {destino.nombre}"[:255],
+                        id_usuario=id_usuario,
+                    ),
+                    MovimientoInventario(
+                        id_producto=data.id_producto,
+                        id_sucursal=data.id_destino,
+                        id_lote=lote_dest.id_lote,
+                        tipo="transferencia_entrada",
+                        cantidad=tomar,
+                        motivo=f"{base} ← {origen.nombre}"[:255],
+                        id_usuario=id_usuario,
+                    ),
+                ]
+            )
         db.commit()  # unico commit: si algo falló antes, no se guardó nada
         cache.invalidate_stock()
     except IntegrityError:
@@ -514,3 +692,167 @@ def lotes_por_vencer(db: Session, dias: int, id_sucursal: int | None = None) -> 
 def lotes_vencidos(db: Session, id_sucursal: int | None = None) -> list[Lote]:
     q = _query_lotes(id_sucursal).where(Lote.fecha_vencimiento < date.today())
     return list(db.scalars(q.order_by(Lote.fecha_vencimiento, Lote.id_lote)).unique())
+
+
+# baja de lotes vencidos: saca las unidades del inventario y deja rastro tipo "vencimiento"
+def dar_de_baja_vencidos(db: Session, id_usuario: int, id_sucursal: int | None = None) -> int:
+    q = select(Lote).where(Lote.cantidad > 0, Lote.fecha_vencimiento < date.today())
+    if id_sucursal is not None:
+        q = q.where(Lote.id_sucursal == id_sucursal)
+    try:
+        lotes = db.scalars(
+            q.order_by(Lote.id_sucursal, Lote.id_producto, Lote.id_lote).with_for_update()
+        ).all()
+        for lote in lotes:
+            inv = db.scalar(
+                select(Inventario)
+                .where(
+                    Inventario.id_producto == lote.id_producto,
+                    Inventario.id_sucursal == lote.id_sucursal,
+                )
+                .with_for_update()
+            )
+            if inv is not None:
+                inv.cantidad = max(0, inv.cantidad - lote.cantidad)
+            db.add(
+                MovimientoInventario(
+                    id_producto=lote.id_producto,
+                    id_sucursal=lote.id_sucursal,
+                    id_lote=lote.id_lote,
+                    tipo="vencimiento",
+                    cantidad=-lote.cantidad,
+                    motivo=f"Baja por vencimiento (lote {lote.numero_lote})"[:255],
+                    id_usuario=id_usuario,
+                )
+            )
+            lote.cantidad = 0
+        db.commit()
+        cache.invalidate_stock()
+        return len(lotes)
+    except Exception:
+        db.rollback()
+        raise
+
+
+# ---------------------------------------------------------------- gestión de lotes
+def lotes_de_producto(db: Session, id_producto: int, id_sucursal: int) -> list[Lote]:
+    """Lotes con stock de un producto en una sucursal, el que vence primero arriba."""
+    q = (
+        select(Lote)
+        .options(joinedload(Lote.producto))
+        .where(
+            Lote.id_producto == id_producto,
+            Lote.id_sucursal == id_sucursal,
+            Lote.cantidad > 0,
+        )
+        .order_by(Lote.fecha_vencimiento, Lote.id_lote)
+    )
+    return list(db.scalars(q).unique())
+
+
+def _lote_bloqueado(db: Session, id_lote: int) -> tuple[Lote, Optional[Inventario]]:
+    """Bloquea primero el inventario y luego el lote (mismo orden que ventas y ajustes)."""
+    base = db.get(Lote, id_lote)
+    if base is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Lote no encontrado")
+    inv = db.scalar(
+        select(Inventario)
+        .where(
+            Inventario.id_producto == base.id_producto,
+            Inventario.id_sucursal == base.id_sucursal,
+        )
+        .with_for_update()
+    )
+    lote = db.scalar(
+        select(Lote)
+        .where(Lote.id_lote == id_lote)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return lote, inv
+
+
+def update_lot(db: Session, id_lote: int, data, id_usuario: int) -> Lote:
+    """Corrige el número o el vencimiento de un lote (errores de digitación)."""
+    import logging
+
+    try:
+        lote, _inv = _lote_bloqueado(db, id_lote)
+        if lote.cantidad <= 0:
+            raise HTTPException(status.HTTP_409_CONFLICT, "El lote no tiene stock; no se puede editar")
+
+        antes = f"{lote.numero_lote} / {lote.fecha_vencimiento}"
+        if data.numero_lote and data.numero_lote != lote.numero_lote:
+            repetido = db.scalar(
+                select(Lote.id_lote).where(
+                    Lote.id_producto == lote.id_producto,
+                    Lote.id_sucursal == lote.id_sucursal,
+                    Lote.numero_lote == data.numero_lote,
+                    Lote.id_lote != lote.id_lote,
+                )
+            )
+            if repetido is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"Ya existe el lote {data.numero_lote} de este producto en la sucursal",
+                )
+            lote.numero_lote = data.numero_lote
+        if data.fecha_vencimiento:
+            lote.fecha_vencimiento = data.fecha_vencimiento
+
+        db.commit()
+        cache.invalidate_stock()
+        logging.getLogger("pharmasphere.lotes").info(
+            "lote %s corregido por usuario %s: [%s] -> [%s / %s]. Motivo: %s",
+            id_lote, id_usuario, antes, lote.numero_lote, lote.fecha_vencimiento, data.motivo,
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Conflicto al editar el lote, intenta de nuevo")
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(lote)
+    return lote
+
+
+def write_off_lot(db: Session, id_lote: int, data, id_usuario: int) -> Lote:
+    """Da de baja unidades de un lote y las saca del inventario, con rastro en el kardex."""
+    try:
+        lote, inv = _lote_bloqueado(db, id_lote)
+        if lote.cantidad <= 0:
+            raise HTTPException(status.HTTP_409_CONFLICT, "El lote no tiene unidades")
+        cantidad = data.cantidad or lote.cantidad
+        if cantidad > lote.cantidad:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"El lote solo tiene {lote.cantidad} unidades (pediste dar de baja {cantidad})",
+            )
+
+        vencido = lote.fecha_vencimiento < date.today()
+        lote.cantidad -= cantidad
+        if inv is not None:
+            inv.cantidad = max(0, inv.cantidad - cantidad)
+        db.add(
+            MovimientoInventario(
+                id_producto=lote.id_producto,
+                id_sucursal=lote.id_sucursal,
+                id_lote=lote.id_lote,
+                tipo="vencimiento" if vencido else "ajuste",
+                cantidad=-cantidad,
+                motivo=f"Baja de lote {lote.numero_lote}: {data.motivo}"[:255],
+                id_usuario=id_usuario,
+            )
+        )
+        db.commit()
+        cache.invalidate_stock()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Conflicto al dar de baja el lote, intenta de nuevo")
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(lote)
+    return lote
