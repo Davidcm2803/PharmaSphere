@@ -11,32 +11,40 @@ export default function useCasosEscalados({ estado = "", nivel = "" } = {}) {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState(null);
   const [actuandoId, setActuandoId] = useState(null); // id_caso con una accion en curso
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await listCasosEscalados({
-        estado: estado || undefined,
-        nivel: nivel || undefined,
-        page,
-        page_size: pageSize,
-      });
-      setCasos(res.items ?? []);
-      setTotal(res.total ?? 0);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [estado, nivel, page, pageSize]);
+  const requestKey = `${estado}|${nivel}|${page}|${pageSize}|${reloadKey}`;
+  const loading = loadedKey !== requestKey;
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    let cancelled = false;
+    listCasosEscalados({
+      estado: estado || undefined,
+      nivel: nivel || undefined,
+      page,
+      page_size: pageSize,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setCasos(res.items ?? []);
+        setTotal(res.total ?? 0);
+        setError(null);
+        setLoadedKey(requestKey);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoadedKey(requestKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [estado, nivel, page, pageSize, requestKey]);
+
+  const recargar = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const conAccion = useCallback(async (idCaso, accion) => {
     setActuandoId(idCaso);
@@ -55,5 +63,5 @@ export default function useCasosEscalados({ estado = "", nivel = "" } = {}) {
   const cerrar = useCallback((idCaso) => conAccion(idCaso, cerrarCasoEscalado), [conAccion]);
   const reabrir = useCallback((idCaso) => conAccion(idCaso, reabrirCasoEscalado), [conAccion]);
 
-  return { casos, total, page, pageSize, setPage, loading, error, actuandoId, tomar, cerrar, reabrir, recargar: cargar };
+  return { casos, total, page, pageSize, setPage, loading, error, actuandoId, tomar, cerrar, reabrir, recargar };
 }

@@ -14,3 +14,4 @@ from app.models.sale_model import Venta, DetalleVenta
 from app.models.recipe_model import Receta
 from app.models.movement_model import MovimientoInventario
 from app.models.document_model import Documento
+from app.models.support_ticket_model import CasoEscalado

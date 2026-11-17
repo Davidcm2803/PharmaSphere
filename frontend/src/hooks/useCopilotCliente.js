@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { sendCopilotClienteMessage } from "../services/copilotClienteService";
 
 const MAX_HISTORY = 6; // igual que copilot_max_historial del backend
 
-// Estado del chat del Copiloto de Cliente (Sofía). Sin voz ni acciones
+// Estado del chat del Copiloto de Cliente (Javier). Sin voz ni acciones
 // pendientes: a diferencia del admin, aquí lo único "especial" por mensaje
 // es el nivel_alerta y el escalamiento que vienen del backend.
 export default function useCopilotCliente() {

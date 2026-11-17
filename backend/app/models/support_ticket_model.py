@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,8 @@ class CasoEscalado(Base):
     __table_args__ = (
         CheckConstraint("nivel IN ('moderado', 'grave', 'emergencia')", name="ck_caso_nivel"),
         CheckConstraint("estado IN ('abierto', 'atendido', 'cerrado')", name="ck_caso_estado"),
+        Index("idx_caso_usuario", "id_usuario"),
+        Index("idx_caso_estado", "estado"),
     )
 
     id_caso: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
