@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.services import (
     copilot_actions_service,
     directory_service,
+    forecast_service,
     inventory_service,
     lot_service,
     rag_service,
@@ -243,6 +244,84 @@ def _top_productos(ctx: Contexto, args: dict) -> Resultado:
         "productos": top(ctx.db, desde=desde, hasta=hasta, limite=limite),
     }
     return datos, _bd("Ventas", f"Top productos del {desde} al {hasta}")
+
+
+#  lectura: tendencias y reposición (solo admin, igual que los reportes)
+
+
+def _parametros_pronostico(args: dict) -> dict:
+    return {
+        "semanas": _entero(args.get("semanas"), forecast_service.SEMANAS_POR_DEFECTO, 1, 26),
+        "dias_cobertura": _entero(
+            args.get("dias_cobertura"), forecast_service.DIAS_COBERTURA_POR_DEFECTO, 1, 90
+        ),
+        "id_sucursal": _entero(args.get("id_sucursal"), None, 1, 10**9),
+    }
+
+
+def _fila_pronostico(i: dict) -> dict:
+    return {
+        "producto": i["nombre"],
+        "sucursal": i["sucursal"],
+        "stock_actual": i["stock_actual"],
+        "stock_minimo": i["stock_minimo"],
+        "promedio_semanal": i["promedio_semanal"],
+        "tendencia": i["tendencia"],
+        "variacion_pct": i["variacion_pct"],
+        "dias_de_stock": i["dias_de_stock"],
+        "cantidad_sugerida": i["cantidad_sugerida"],
+        "prioridad": i["prioridad"],
+        "explicacion": i["explicacion"],
+    }
+
+
+def _recomendaciones_reposicion(ctx: Contexto, args: dict) -> Resultado:
+    params = _parametros_pronostico(args)
+    limite = _entero(args.get("limite"), 10, 1, 15)
+    pronostico = forecast_service.get_forecast(ctx.db, **params, solo_reposicion=True)
+    items = pronostico["items"]
+    base = {
+        "ventas_desde": pronostico["ventana_reciente"]["desde"],
+        "ventas_hasta": pronostico["ventana_reciente"]["hasta"],
+        "dias_cobertura": params["dias_cobertura"],
+    }
+    if not items:
+        return {
+            **base,
+            "total": 0,
+            "recomendaciones": [],
+            "nota": "Con las ventas recientes, ningún producto necesita reposición",
+        }, []
+    datos = {
+        **base,
+        "total": len(items),
+        "unidades_sugeridas_total": pronostico["resumen"]["unidades_sugeridas"],
+        "recomendaciones": [_fila_pronostico(i) for i in items[:limite]],
+    }
+    return datos, _bd(
+        "Ventas e inventario",
+        f"Reposición según las ventas de las últimas {params['semanas']} semanas",
+    )
+
+
+def _tendencia_ventas(ctx: Contexto, args: dict) -> Resultado:
+    params = _parametros_pronostico(args)
+    nombre = str(args.get("nombre_producto") or "").strip() or None
+    limite = _entero(args.get("limite"), 10, 1, 15)
+    pronostico = forecast_service.get_forecast(ctx.db, **params, q=nombre)
+    items = pronostico["items"]
+    if not items:
+        return {"total": 0, "productos": [], "nota": "No hay productos que coincidan"}, []
+    datos = {
+        "ventas_desde": pronostico["ventana_reciente"]["desde"],
+        "ventas_hasta": pronostico["ventana_reciente"]["hasta"],
+        "total": len(items),
+        "productos": [_fila_pronostico(i) for i in items[:limite]],
+    }
+    return datos, _bd(
+        "Ventas e inventario",
+        f"Tendencia de ventas de las últimas {params['semanas']} semanas",
+    )
 
 
 #  lectura: directorio 
@@ -554,6 +633,58 @@ HERRAMIENTAS = {
                 }
             ),
             _top_productos,
+        ),
+        Herramienta(
+            "recomendaciones_reposicion",
+            "Qué conviene comprar y en qué cantidad, según las ventas recientes y el "
+            "stock mínimo, por producto y sucursal. Úsala para '¿qué debería comprar "
+            "esta semana?' (con dias_cobertura=7) o '¿qué hay que reponer?'. Cada "
+            "producto trae su 'explicacion': úsala para explicar de dónde sale la cantidad. "
+            "Solo para administradores.",
+            _params(
+                {
+                    "id_sucursal": {
+                        "type": "integer",
+                        "description": "Opcional: limita a una sucursal",
+                    },
+                    "dias_cobertura": {
+                        "type": "integer",
+                        "description": "Días de venta que debe cubrir la compra (1 a 90, por defecto 14)",
+                    },
+                    "semanas": {
+                        "type": "integer",
+                        "description": "Semanas de ventas recientes a promediar (1 a 26, por defecto 4)",
+                    },
+                    "limite": {"type": "integer", "description": "1 a 15, por defecto 10"},
+                }
+            ),
+            _recomendaciones_reposicion,
+            solo_admin=True,
+        ),
+        Herramienta(
+            "tendencia_ventas",
+            "Promedio de ventas por semana y mes, tendencia (sube, baja o estable) y días "
+            "de stock restantes por producto y sucursal. Úsala para '¿cómo van las ventas "
+            "de X?' o '¿cuántos días de stock quedan?'. Solo para administradores.",
+            _params(
+                {
+                    "nombre_producto": {
+                        "type": "string",
+                        "description": "Opcional: nombre principal del producto (ej. 'paracetamol')",
+                    },
+                    "id_sucursal": {
+                        "type": "integer",
+                        "description": "Opcional: limita a una sucursal",
+                    },
+                    "semanas": {
+                        "type": "integer",
+                        "description": "Semanas de ventas recientes a promediar (1 a 26, por defecto 4)",
+                    },
+                    "limite": {"type": "integer", "description": "1 a 15, por defecto 10"},
+                }
+            ),
+            _tendencia_ventas,
+            solo_admin=True,
         ),
         Herramienta(
             "listar_sucursales",
