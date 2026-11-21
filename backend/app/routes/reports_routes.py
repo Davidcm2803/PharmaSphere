@@ -11,10 +11,11 @@ from app.schemas.report_schema import (
     GananciaOut,
     LoteVencimientoOut,
     ProductoVendidoOut,
+    PronosticoOut,
     StockBajoOut,
     SucursalVentasOut,
 )
-from app.services import report_export_service, report_service
+from app.services import forecast_service, report_export_service, report_service
 
 MAX_DIAS = 366
 DIAS_PERMITIDOS = (7, 30, 90)
@@ -130,6 +131,23 @@ def alerts(db: Session = Depends(get_db)):
 @router.get("/movements")
 def movements(limit: int = Query(6, ge=1, le=50), db: Session = Depends(get_db)):
     return report_service.get_movements(db, limit)
+
+
+@router.get("/forecast", response_model=PronosticoOut)
+def forecast(
+    semanas: int = Query(
+        forecast_service.SEMANAS_POR_DEFECTO, ge=1, le=26, description="Semanas de ventas recientes a promediar"
+    ),
+    dias_cobertura: int = Query(
+        forecast_service.DIAS_COBERTURA_POR_DEFECTO, ge=1, le=90, description="Días de venta que debe cubrir la compra"
+    ),
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    q: Optional[str] = Query(None, max_length=100, description="Parte del nombre del producto"),
+    solo_reposicion: bool = Query(False, description="Solo los productos con cantidad sugerida mayor a cero"),
+    al: Optional[date] = Query(None, description="Fecha de corte AAAA-MM-DD (por defecto, hoy)"),
+    db: Session = Depends(get_db),
+):
+    return forecast_service.get_forecast(db, semanas, dias_cobertura, id_sucursal, q, solo_reposicion, al)
 
 
 @router.get("/export")
