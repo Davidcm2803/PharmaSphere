@@ -1,3 +1,4 @@
+
 """Fixtures compartidos de los tests.
 
 Los tests corren contra una base APARTE (`<base>_test`), nunca contra la de desarrollo.
@@ -32,8 +33,7 @@ def _apuntar_a_base_de_pruebas() -> URL:
     )
     url = destino.render_as_string(hide_password=False)
     settings.database_url = url
-    os.environ["DATABASE_URL"] = url  # lo lee alembic (subproceso)
-    # el cache de Redis no se comparte con el de desarrollo
+    os.environ["DATABASE_URL"] = url
     settings.cache_prefix = "pstest:"
     os.environ["CACHE_PREFIX"] = "pstest:"
     return destino
@@ -69,13 +69,25 @@ def _crear_base(destino: URL) -> bool:
 
 
 def _cargar_sql(destino: URL) -> None:
-    """Ejecuta init.sql y luego seed.sql (orden alfabético, igual que docker-entrypoint-initdb.d)."""
+    """Ejecuta únicamente init.sql y seed.sql para preparar la base de pruebas."""
     eng = create_engine(destino)
     raw = eng.raw_connection()
     try:
         cur = raw.cursor()
-        for archivo in sorted(INIT_DIR.glob("*.sql")):
+
+        # Los datos demo no deben contaminar los resultados de los tests.
+        archivos = ("init.sql", "seed.sql")
+
+        for nombre in archivos:
+            archivo = INIT_DIR / nombre
+
+            if not archivo.exists():
+                raise FileNotFoundError(
+                    f"No se encontró el archivo SQL requerido: {archivo}"
+                )
+
             cur.execute(archivo.read_text(encoding="utf-8-sig"))
+
         raw.commit()
     finally:
         raw.close()
@@ -111,7 +123,7 @@ def base_de_pruebas():
 def db():
     conexion = engine.connect()
     transaccion = conexion.begin()
-    sesion = Session(bind=conexion, join_transaction_mode="create_savepoint")
+    sesion = Session(bind=conexion)
     try:
         yield sesion
     finally:
