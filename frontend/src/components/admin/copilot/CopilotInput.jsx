@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Mic, MicOff, Send } from "lucide-react";
-import Button from "../../Ui/Button";
-import Input from "../../Ui/Input";
+import Button from "../../ui/Button";
+import Input from "../../ui/Input";
 
 export default function CopilotInput({ onSend, disabled, voice }) {
   const [text, setText] = useState("");

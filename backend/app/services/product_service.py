@@ -31,15 +31,14 @@ def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 #Suma el stock de todas las sucursales por producto
-def _stock_subquery():
-    return (
-        select(
-            Inventario.id_producto.label("id_producto"),
-            func.sum(Inventario.cantidad).label("stock"),
-        )
-        .group_by(Inventario.id_producto)
-        .subquery()
+def _stock_subquery(id_sucursal: Optional[int] = None):
+    stmt = select(
+        Inventario.id_producto.label("id_producto"),
+        func.sum(Inventario.cantidad).label("stock"),
     )
+    if id_sucursal is not None:
+        stmt = stmt.where(Inventario.id_sucursal == id_sucursal)
+    return stmt.group_by(Inventario.id_producto).subquery()
 
 
 _ORDER = {
@@ -60,8 +59,10 @@ def list_products(
     requiere_receta: Optional[bool],
     orden: ProductSort,
     params: PageParams,
+    id_sucursal: Optional[int] = None,
+    solo_con_stock: bool = False,
 ) -> Tuple[List[Tuple[Producto, int]], int]:
-    stock = _stock_subquery()
+    stock = _stock_subquery(id_sucursal)
     stock_total = func.coalesce(stock.c.stock, 0).label("stock_total")
 
     stmt = (
@@ -81,6 +82,8 @@ def list_products(
         stmt = stmt.where(Producto.precio <= precio_max)
     if requiere_receta is not None:
         stmt = stmt.where(Producto.requiere_receta.is_(requiere_receta))
+    if solo_con_stock:
+        stmt = stmt.where(func.coalesce(stock.c.stock, 0) > 0)
 
     stmt = stmt.order_by(*_ORDER[orden](), Producto.id_producto)
     rows, total = paginate(db, stmt, params)

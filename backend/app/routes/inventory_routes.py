@@ -10,7 +10,9 @@ from app.models.lot_model import Lote
 from app.models.user_model import Usuario
 from app.schemas.inventory_schema import (
     InventoryItemOut,
+    LoteUpdateIn,
     LoteVencimientoOut,
+    LoteWriteOffIn,
     ProductoSinInventarioOut,
     StockAddIn,
     StockAdjustIn,
@@ -53,7 +55,7 @@ def list_inventory(
 # Lotes por vencer / vencidos (FEFO)
 @router.get("/expiring", response_model=List[LoteVencimientoOut])
 def por_vencer(
-    days: int = Query(30, ge=1, le=365),
+    days: int = Query(30, ge=1, le=3650),
     id_sucursal: Optional[int] = Query(None, ge=1),
     db: Session = Depends(get_db),
     _user: Usuario = Depends(_staff),
@@ -128,3 +130,48 @@ def transfer_stock(
     user: Usuario = Depends(_staff),
 ):
     return inventory_service.transfer_stock(db, data, user.id_usuario)
+
+
+# Da de baja (stock -> 0) todos los lotes ya vencidos
+@router.post("/expired/write-off")
+def baja_vencidos(
+    id_sucursal: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    n = inventory_service.dar_de_baja_vencidos(db, user.id_usuario, id_sucursal)
+    return {"lotes_dados_de_baja": n}
+
+
+# --- Gestión de lotes -------------------------------------------------------
+# Lotes con stock de un producto en una sucursal
+@router.get("/lots", response_model=List[LoteVencimientoOut])
+def lotes_producto(
+    id_producto: int = Query(..., ge=1),
+    id_sucursal: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    _user: Usuario = Depends(_staff),
+):
+    return [_out(l) for l in inventory_service.lotes_de_producto(db, id_producto, id_sucursal)]
+
+
+# Corregir número o vencimiento de un lote (motivo obligatorio)
+@router.patch("/lots/{id_lote}", response_model=LoteVencimientoOut)
+def editar_lote(
+    id_lote: int,
+    data: LoteUpdateIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return _out(inventory_service.update_lot(db, id_lote, data, user.id_usuario))
+
+
+# Dar de baja unidades de un lote (vencido, dañado, retiro...)
+@router.post("/lots/{id_lote}/write-off", response_model=LoteVencimientoOut)
+def baja_lote(
+    id_lote: int,
+    data: LoteWriteOffIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(_staff),
+):
+    return _out(inventory_service.write_off_lot(db, id_lote, data, user.id_usuario))

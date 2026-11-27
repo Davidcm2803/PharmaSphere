@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -5,6 +6,7 @@ from sqlalchemy import select
 
 from app.models.branch_model import Sucursal
 from app.models.inventory_model import Inventario
+from app.models.lot_model import Lote
 from app.models.movement_model import MovimientoInventario
 
 # `client` es una fixture definida en test_auth.py
@@ -17,6 +19,8 @@ from app.test.test_auth import (  # noqa: F401
 )
 
 BASE = "/api/inventory"
+
+VENCE = date.today() + timedelta(days=365)
 
 CATALOGO = [
     {"nombre": "Paracetamol 500mg", "categoria": "Analgesicos", "precio": 1500, "costo": 800},
@@ -62,6 +66,17 @@ def sucursales(client):
 def poner_stock(id_producto, id_sucursal, cantidad, minimo=0):
     db = TestingSessionLocal()
     db.add(Inventario(id_producto=id_producto, id_sucursal=id_sucursal, cantidad=cantidad, stock_minimo=minimo))
+    if cantidad > 0:
+        db.add(
+            Lote(
+                id_producto=id_producto,
+                id_sucursal=id_sucursal,
+                numero_lote="L-TEST",
+                fecha_vencimiento=VENCE,
+                cantidad=cantidad,
+                cantidad_inicial=cantidad,
+            )
+        )
     db.commit()
     db.close()
 
@@ -90,7 +105,20 @@ def movimientos():
     return rows
 
 
+def lotes():
+    db = TestingSessionLocal()
+    rows = [
+        {"numero_lote": l.numero_lote, "cantidad": l.cantidad, "id_sucursal": l.id_sucursal}
+        for l in db.scalars(select(Lote)).all()
+    ]
+    db.close()
+    return rows
+
+
 def ajustar(client, token, **body):
+    if body.get("cantidad", 0) > 0:
+        body.setdefault("numero_lote", "L-TEST")
+        body.setdefault("fecha_vencimiento", VENCE.isoformat())
     return client.post(f"{BASE}/adjust", json=body, headers=auth_header(token))
 
 
@@ -241,6 +269,30 @@ def test_ajuste_positivo_crea_registro_y_movimiento(client, admin, catalogo, suc
     assert movs[0]["tipo"] == "ajuste"
     assert movs[0]["cantidad"] == 10
     assert movs[0]["motivo"] == "Compra inicial"
+    assert lotes() == [{"numero_lote": "L-TEST", "cantidad": 10, "id_sucursal": sucursales.central}]
+
+
+def test_ajuste_positivo_sin_lote_devuelve_422(client, admin, catalogo, sucursales):
+    resp = client.post(
+        f"{BASE}/adjust",
+        json={
+            "id_producto": catalogo[0]["id_producto"],
+            "id_sucursal": sucursales.central,
+            "cantidad": 5,
+            "motivo": "Compra",
+        },
+        headers=auth_header(admin),
+    )
+    assert resp.status_code == 422
+    assert movimientos() == []
+
+
+def test_ajuste_con_vencimiento_pasado_devuelve_422(client, admin, catalogo, sucursales):
+    resp = ajustar(client, admin, id_producto=catalogo[0]["id_producto"], id_sucursal=sucursales.central,
+                   cantidad=5, motivo="Compra", fecha_vencimiento=(date.today() - timedelta(days=1)).isoformat())
+    assert resp.status_code == 422
+    assert movimientos() == []
+    assert lotes() == []
 
 
 def test_ajuste_negativo_resta_stock(client, admin, catalogo, sucursales):
@@ -252,6 +304,7 @@ def test_ajuste_negativo_resta_stock(client, admin, catalogo, sucursales):
     assert resp.status_code == 200
     assert resp.json()["cantidad"] == 6
     assert movimientos()[0]["cantidad"] == -4
+    assert lotes()[0]["cantidad"] == 6
 
 
 def test_ajuste_conserva_stock_minimo(client, admin, catalogo, sucursales):
@@ -375,6 +428,10 @@ def test_transferencia_crea_registro_en_destino_si_no_existe(client, admin, cata
     assert resp.json()["stock_origen"] == 0
     assert resp.json()["stock_destino"] == 10
     assert leer_stock(id_producto, sucursales.norte) == 10
+    assert {(l["id_sucursal"], l["cantidad"]) for l in lotes()} == {
+        (sucursales.central, 0),
+        (sucursales.norte, 10),
+    }
 
 
 def test_transferencia_sin_motivo_usa_texto_por_defecto(client, admin, catalogo, sucursales):

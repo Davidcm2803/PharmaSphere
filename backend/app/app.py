@@ -16,9 +16,11 @@ from app.db.session import engine, SessionLocal
 from app.middlewares.auth_middleware import AuthMiddleware
 from app.middlewares.error_handler import register_exception_handlers
 from app.routes import (
+    ai_cliente_routes,
     ai_routes,
     auth_routes,
     branches_routes,
+    casos_escalados_routes,
     customers_routes,
     employees_routes,
     inventory_routes,
@@ -513,11 +515,25 @@ app.include_router(
     tags=["suppliers"],
 )
 
+
 app.include_router(
     customers_routes.router,
     prefix="/api/customers",
     tags=["customers"],
 )
+
+app.include_router(
+    casos_escalados_routes.router,
+    prefix="/api/casos-escalados",
+    tags=["Casos Escalados"],
+)
+
+app.include_router(
+    ai_cliente_routes.router,
+    prefix="/api/ai",
+    tags=["ai-cliente"],
+)
+
 
 app.include_router(
     recipes_routes.router,

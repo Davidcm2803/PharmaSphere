@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ActionButton from "../ui/ActionButton";
 import Alert from "../../ui/Alert";
-import Button from "../../Ui/Button";
+import Button from "../../ui/Button";
 import LoteRow from "./LoteRow";
 
 const pad = (n) => String(n).padStart(2, "0");

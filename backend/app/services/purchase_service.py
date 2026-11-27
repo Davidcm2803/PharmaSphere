@@ -108,6 +108,7 @@ def recibir_compra(
                     if lote.fecha_vencimiento != l.fecha_vencimiento:
                         raise PurchaseError(409, f"El lote {l.numero_lote} ya existe con otro vencimiento")
                     lote.cantidad += l.cantidad
+                    lote.cantidad_inicial += l.cantidad
                 else:
                     lote = Lote(
                         id_producto=id_producto,
@@ -116,6 +117,7 @@ def recibir_compra(
                         numero_lote=l.numero_lote,
                         fecha_vencimiento=l.fecha_vencimiento,
                         cantidad=l.cantidad,
+                        cantidad_inicial=l.cantidad,
                     )
                     db.add(lote)
                     db.flush()

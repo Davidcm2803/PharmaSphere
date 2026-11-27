@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 # cuantos fragmentos se embeben y suben a qdrant por tanda
 _LOTE = 64
 
+# prefijos de archivo que se consideran publicos al cargar una carpeta
+# (ej. ficha_ibuprofeno.md -> publico). Lo demas (manual_, politica_) queda interno.
+_PREFIJOS_PUBLICOS = {"ficha", "faq"}
+
 
 class ArchivoInvalidoError(Exception):
     pass
@@ -76,6 +80,7 @@ def _indexar_documento(documento: Documento) -> int:
                     "titulo": documento.titulo,
                     "tipo": documento.tipo,
                     "indice_chunk": i,
+                    "publico": documento.publico,
                 }
                 for i in range(len(fragmentos))
             ],
@@ -103,6 +108,7 @@ def crear_documento(
     titulo: Optional[str],
     tipo: Optional[str],
     id_usuario: Optional[int],
+    publico: bool = False,
 ) -> Tuple[Documento, int]:
     if len(datos) > limite_subida_bytes():
         raise ArchivoDemasiadoGrandeError(
@@ -120,6 +126,7 @@ def crear_documento(
         contenido=texto,
         ruta=nombre_archivo[:500],
         id_usuario=id_usuario,
+        publico=publico,
     )
     db.add(documento)
     db.flush()  # para tener el id_documento
@@ -146,8 +153,29 @@ def list_documentos(
     return [row[0] for row in rows], total
 
 
+# cambia la visibilidad de un documento ya existente y reindexa sus vectores
+# (el payload en Qdrant lleva su propia copia de "publico", hay que actualizarla)
+def set_publico(db: Session, *, id_documento: int, publico: bool) -> Documento:
+    documento = db.get(Documento, id_documento)
+    if documento is None:
+        raise ArchivoInvalidoError("El documento no existe")
+    if documento.publico == publico:
+        return documento
+    documento.publico = publico
+    try:
+        if documento.indexado and documento.contenido:
+            _indexar_documento(documento)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(documento)
+    return documento
+
+
 # indexa los productos activos (solo nombre, categoria, descripcion y receta)
 # se borran primero los vectores de productos para sacar los que ya no estan activos
+# los productos siempre son "publicos": son catalogo, pensado para mostrarse al cliente
 def indexar_productos(db: Session) -> int:
     productos = list(
         db.scalars(
@@ -162,7 +190,12 @@ def indexar_productos(db: Session) -> int:
                 [loader.producto_a_texto(p) for p in productos],
                 [f"producto:{p.id_producto}" for p in productos],
                 [
-                    {"origen": "producto", "id_producto": p.id_producto, "titulo": p.nombre}
+                    {
+                        "origen": "producto",
+                        "id_producto": p.id_producto,
+                        "titulo": p.nombre,
+                        "publico": True,
+                    }
                     for p in productos
                 ],
             )
@@ -191,6 +224,7 @@ def reindexar_todo(db: Session) -> Tuple[int, int]:
 
 
 # carga una carpeta de .txt/.md/.pdf. Si el archivo ya esta cargado (mismo nombre) se salta
+# el prefijo del nombre decide tipo y si es publico (ficha_, faq_ -> publico)
 def cargar_carpeta(db: Session, carpeta: Path) -> List[Documento]:
     existentes = set(db.scalars(select(Documento.ruta)))
     creados: List[Documento] = []
@@ -200,16 +234,18 @@ def cargar_carpeta(db: Session, carpeta: Path) -> List[Documento]:
         if archivo.name in existentes:
             print(f"- {archivo.name}: ya estaba cargado, se omite")
             continue
-        # el prefijo del nombre es el tipo: manual_..., politica_..., ficha_...
+        tipo = archivo.stem.split("_")[0]
+        publico = tipo.lower() in _PREFIJOS_PUBLICOS
         documento, fragmentos = crear_documento(
             db,
             nombre_archivo=archivo.name,
             datos=archivo.read_bytes(),
             titulo=None,
-            tipo=archivo.stem.split("_")[0],
+            tipo=tipo,
             id_usuario=None,
+            publico=publico,
         )
-        print(f"- {archivo.name}: {fragmentos} fragmentos")
+        print(f"- {archivo.name}: {fragmentos} fragmentos (publico={publico})")
         creados.append(documento)
     return creados
 

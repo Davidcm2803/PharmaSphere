@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import Input from "../../Ui/Input";
+import Input from "../../ui/Input";
 import { formatPrice } from "../../../lib/format";
 
 // Una línea de la orden: producto, cantidad y costo unitario. `linea.errors` trae los mensajes

@@ -4,9 +4,9 @@ import { useCart } from "../../context/CartContext";
 import { cn } from "../../lib/utils";
 
 const stepperBtn =
-  "flex h-full w-10 items-center justify-center text-brand-foreground transition-colors hover:bg-brand-muted disabled:cursor-not-allowed disabled:opacity-40";
+  "flex h-full w-10 shrink-0 sm:w-9 items-center justify-center text-brand-muted-foreground transition-colors hover:bg-brand-muted hover:text-brand-foreground disabled:cursor-not-allowed disabled:opacity-40";
 
-export default function AddToCartButton({ product, className = "", showQuantity = false }) {
+export default function AddToCartButton({ product, className = "", showQuantity = true }) {
   const { items, addItem } = useCart();
   const [added, setAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -43,13 +43,13 @@ export default function AddToCartButton({ product, className = "", showQuantity 
       onClick={handleClick}
       disabled={blocked}
       className={cn(
-        "inline-flex h-11 items-center justify-center gap-2 rounded-full border px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
-        showQuantity ? "flex-1" : "w-full",
+        "inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
+        showQuantity ? "basis-[9.5rem] flex-1" : "w-full",
         blocked
           ? "cursor-not-allowed border-brand-border bg-brand-muted text-brand-muted-foreground"
           : added
             ? "border-brand-success bg-brand-success text-white"
-            : "border-brand-foreground/20 bg-transparent text-brand-foreground hover:border-brand-primary hover:bg-brand-primary hover:text-brand-primary-foreground",
+            : "border-brand-primary bg-brand-primary text-brand-primary-foreground hover:opacity-90",
       )}
     >
       {agotado ? (
@@ -62,8 +62,8 @@ export default function AddToCartButton({ product, className = "", showQuantity 
         </>
       ) : (
         <>
-          <ShoppingCart className="h-4 w-4" />{" "}
-          {showQuantity && cantidad > 1 ? `Agregar ${cantidad} al carrito` : "Agregar al carrito"}
+          <ShoppingCart className="h-4 w-4 shrink-0" />{" "}
+          {showQuantity && cantidad > 1 ? `Agregar ${cantidad}` : "Agregar al carrito"}
         </>
       )}
     </button>
@@ -74,10 +74,10 @@ export default function AddToCartButton({ product, className = "", showQuantity 
   }
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <div
         className={cn(
-          "flex h-11 shrink-0 items-center overflow-hidden rounded-full border border-brand-border bg-brand-card",
+          "mx-auto flex h-11 shrink-0 items-center overflow-hidden rounded-full border border-brand-border bg-brand-card transition-colors focus-within:border-brand-primary",
           blocked && "opacity-50",
         )}
       >
@@ -99,7 +99,7 @@ export default function AddToCartButton({ product, className = "", showQuantity 
           onFocus={(e) => e.target.select()}
           disabled={blocked}
           aria-label="Cantidad"
-          className="h-full w-12 bg-transparent text-center text-base font-semibold tabular-nums text-brand-foreground focus:outline-none sm:text-sm"
+          className="h-full w-9 bg-transparent text-center text-base font-semibold tabular-nums text-brand-foreground focus:outline-none sm:text-sm"
         />
         <button
           type="button"

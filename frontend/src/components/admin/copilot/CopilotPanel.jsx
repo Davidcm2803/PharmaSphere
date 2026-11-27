@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Bot, Trash2, Volume2, VolumeX, X } from "lucide-react";
-import Spinner from "../../Ui/Spinner";
+import Spinner from "../../ui/Spinner";
 import Notice from "../ui/Notice";
 import CopilotAction from "./CopilotAction";
 import CopilotInput from "./CopilotInput";

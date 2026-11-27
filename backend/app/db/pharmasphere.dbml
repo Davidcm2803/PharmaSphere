@@ -182,6 +182,20 @@ Table documento {
   contenido text                       // texto completo, si se guarda directo en la base
   ruta varchar                         // ruta o url del archivo original, si aplica
   indexado boolean                     // true si ya se genero su embedding en Qdrant
+  publico boolean                      // true = visible para el copiloto de clientes (fichas, FAQ). false = solo copiloto interno (manuales, politicas)
   id_usuario int [ref: > usuario.id_usuario]  // quien subio el documento
   created_at timestamp                 // fecha en que se subio
+}
+
+// Casos que el copiloto de cliente escala a un encargado humano
+// (sintomas graves, pedido explicito de hablar con alguien, receta/autorizacion que la IA no puede dar)
+Table caso_escalado {
+  id_caso int [pk, increment]          // identificador del caso
+  id_usuario int [ref: > usuario.id_usuario]     // usuario (cliente) que genero el caso
+  nivel varchar [note: "moderado | grave | emergencia"]  // severidad detectada (emergencia no llega a crear fila: se responde directo con numero de emergencias)
+  motivo varchar                       // por que se escalo (texto corto, ej. "reaccion alergica")
+  mensaje_usuario text                 // mensaje original del cliente que disparo el caso
+  estado varchar [note: "abierto | atendido | cerrado"]  // seguimiento del caso por el encargado
+  id_empleado_atiende int [ref: > empleado.id_empleado, note: "null hasta que un encargado lo toma"]  // quien lo atiende
+  created_at timestamp                 // fecha en que se genero el caso
 }

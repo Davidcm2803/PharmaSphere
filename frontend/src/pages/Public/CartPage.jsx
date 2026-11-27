@@ -6,7 +6,7 @@ import { StatePanel } from "../../components/layout/ProductList";
 import CartItemRow from "../../components/layout/CartItemRow";
 import CartSummary from "../../components/layout/CartSummary";
 import { AuthModal } from "../../components/layout/AuthModal";
-import Button from "../../components/Ui/Button";
+import Button from "../../components/ui/Button";
 import Alert from "../../components/ui/Alert";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";

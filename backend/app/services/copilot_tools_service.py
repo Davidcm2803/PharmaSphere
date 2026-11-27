@@ -358,13 +358,39 @@ def _preparar_ingreso_stock(ctx: Contexto, args: dict) -> Resultado:
             "nota": "Pregunta en cuál sucursal ingresa la mercadería.",
         }, []
 
+    numero_lote = str(args.get("numero_lote") or "").strip()
+    fecha_texto = str(args.get("fecha_vencimiento") or "").strip()
+    if not numero_lote or not fecha_texto:
+        faltan = []
+        if not numero_lote:
+            faltan.append("numero_lote")
+        if not fecha_texto:
+            faltan.append("fecha_vencimiento")
+        return {
+            "estado": "falta_lote",
+            "faltan": faltan,
+            "nota": (
+                "Todo ingreso se registra como un lote. Pregunta al usuario el número de lote "
+                "y la fecha de vencimiento (AAAA-MM-DD). No los inventes."
+            ),
+        }, []
+    if len(numero_lote) > 100:
+        raise ArgumentoInvalidoError("El número de lote no puede superar 100 caracteres")
+    try:
+        vencimiento = date.fromisoformat(fecha_texto)
+    except ValueError:
+        raise ArgumentoInvalidoError("La fecha de vencimiento debe tener formato AAAA-MM-DD")
+    if vencimiento <= date.today():
+        raise ArgumentoInvalidoError("La fecha de vencimiento debe ser posterior a hoy")
+
     filas = inventory_service.get_product_stock(ctx.db, producto["id_producto"])
     actual = next(
         (f["cantidad"] for f in filas if f["id_sucursal"] == sucursal["id_sucursal"]), 0
     )
     resumen = (
         f"Agregar {cantidad} unidades de {producto['nombre']} en {sucursal['nombre']} "
-        f"(stock: {actual} → {actual + cantidad})"
+        f"(lote {numero_lote}, vence {vencimiento.strftime('%d/%m/%Y')}; "
+        f"stock: {actual} → {actual + cantidad})"
     )
     token = copilot_actions_service.crear_token_ingreso(
         id_usuario=ctx.id_usuario,
@@ -373,6 +399,8 @@ def _preparar_ingreso_stock(ctx: Contexto, args: dict) -> Resultado:
         id_sucursal=sucursal["id_sucursal"],
         sucursal=sucursal["nombre"],
         cantidad=cantidad,
+        numero_lote=numero_lote,
+        fecha_vencimiento=vencimiento,
     )
     datos = {
         "estado": "pendiente_confirmacion",
@@ -568,7 +596,9 @@ HERRAMIENTAS = {
             "preparar_ingreso_stock",
             "Prepara el ingreso de unidades de un producto al inventario. NO guarda "
             "nada: genera una confirmación que el usuario aprueba. Úsala cuando "
-            "digan 'agrega/ingresa N unidades de X'. Usa exactamente la cantidad dicha.",
+            "digan 'agrega/ingresa N unidades de X'. Usa exactamente la cantidad dicha. "
+            "Todo ingreso es un lote: necesita número de lote y fecha de vencimiento "
+            "que dé el usuario; si no los dijo, no los inventes.",
             _params(
                 {
                     "nombre_producto": {
@@ -582,6 +612,14 @@ HERRAMIENTAS = {
                     "sucursal": {
                         "type": "string",
                         "description": "Nombre de la sucursal, solo si el usuario la dijo",
+                    },
+                    "numero_lote": {
+                        "type": "string",
+                        "description": "Número de lote, solo si el usuario lo dijo. Ej. 'PAR-004'",
+                    },
+                    "fecha_vencimiento": {
+                        "type": "string",
+                        "description": "Vencimiento del lote AAAA-MM-DD, solo si el usuario la dijo",
                     },
                 },
                 ["nombre_producto", "cantidad"],

@@ -59,9 +59,14 @@ def upsert(name: str, points: list[dict]) -> None:
 
 
 # devuelve los puntos mas parecidos con su score
-def search(name: str, vector: list[float], limit: int = 3) -> list[dict]:
+def search(
+    name: str,
+    vector: list[float],
+    limit: int = 3,
+    filtro: "Filter | None" = None,
+) -> list[dict]:
     res = get_client().query_points(
-        collection_name=name, query=vector, limit=limit, with_payload=True
+        collection_name=name, query=vector, limit=limit, with_payload=True, query_filter=filtro
     )
     return [{"id": r.id, "score": r.score, "payload": r.payload} for r in res.points]
 

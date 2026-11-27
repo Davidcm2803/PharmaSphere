@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeftRight, Boxes, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Boxes, Search, Trash2 } from "lucide-react";
 import useFetch from "../../hooks/useFetch";
 import { ENDPOINTS, apiFetch } from "../../config/api";
 import PageHeader from "../../components/admin/ui/PageHeader";
@@ -14,6 +14,8 @@ import Badge from "../../components/ui/Badge";
 import AjustarStockModal from "../../components/admin/inventory/AjustarStockModal";
 import TransferirStockModal from "../../components/admin/inventory/TransferirStockModal";
 import AgregarInventarioModal from "../../components/admin/inventory/AgregarInventarioModal";
+import LotesModal from "../../components/admin/inventory/LotesModal";
+import { daysUntil, expiryStatus, fmtDate } from "../../lib/expiry";
 
 const PAGE_SIZE = 10;
 
@@ -31,7 +33,13 @@ const normalize = (r) => ({
 });
 
 const iconAction =
-  "flex h-9 w-9 items-center justify-center rounded-lg text-brand-muted-foreground transition-colors hover:bg-brand-muted hover:text-brand-foreground";
+  "flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-brand-border bg-brand-card text-brand-muted-foreground transition-colors hover:border-brand-danger hover:bg-brand-muted hover:text-brand-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary";
+
+const textAction =
+  "h-8 cursor-pointer rounded-lg border border-brand-border bg-brand-card px-3 text-xs font-semibold text-brand-foreground transition-colors hover:border-brand-primary hover:bg-brand-muted hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary";
+
+const primaryAction =
+  "h-8 cursor-pointer rounded-lg bg-brand-primary px-3 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2";
 
 const selectClass =
   "h-10 w-full rounded-lg border border-brand-border bg-brand-card px-3 text-sm text-brand-foreground focus:border-brand-primary focus:outline-none sm:min-w-[200px] sm:w-auto";
@@ -48,7 +56,26 @@ const columns = [
       </span>
     ),
   },
+  {
+    key: "lotes_con_stock",
+    label: "Lotes",
+    render: (r) => r.lotes_con_stock ?? 0,
+  },
   { key: "stock_minimo", label: "Mínimo" },
+  {
+    key: "proximo_vencimiento",
+    label: "Próx. vencimiento",
+    render: (r) => {
+      if (!r.proximo_vencimiento) return "—";
+      const { variant, label } = expiryStatus(daysUntil(r.proximo_vencimiento));
+      return (
+        <span className="flex flex-wrap items-center gap-2">
+          <span>{fmtDate(r.proximo_vencimiento)}</span>
+          <Badge variant={variant}>{label}</Badge>
+        </span>
+      );
+    },
+  },
   {
     key: "estado",
     label: "Estado",
@@ -103,6 +130,7 @@ export default function Inventario() {
   const [adjusting, setAdjusting] = useState(null);
   const [transferring, setTransferring] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [lotes, setLotes] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -142,7 +170,7 @@ export default function Inventario() {
     if (r.cantidad > 0) {
       setNotice({
         type: "warning",
-        text: `"${r.nombre}" tiene ${r.cantidad} ${r.cantidad === 1 ? "unidad" : "unidades"} en stock, Primero se debe vender o transferir para eliminar el inventario.`,
+        text: `"${r.nombre}" tiene ${r.cantidad} ${r.cantidad === 1 ? "unidad" : "unidades"} en stock. Primero se debe vender, transferir o dar de baja para quitarlo del inventario.`,
       });
       return;
     }
@@ -150,32 +178,34 @@ export default function Inventario() {
   };
 
   const renderActions = (r) => (
-    <>
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       <button
-        onClick={() => setAdjusting(r)}
-        className={iconAction}
-        aria-label={`Ajustar stock de ${r.nombre}`}
-        title="Ajustar stock"
+        onClick={() => setLotes({ item: r, startAdding: true })}
+        className={primaryAction}
       >
-        <SlidersHorizontal className="h-4 w-4" />
+        Ingresar stock
       </button>
       <button
-        onClick={() => setTransferring(r)}
-        className={iconAction}
-        aria-label={`Transferir stock de ${r.nombre}`}
-        title="Transferir a otra sucursal"
+        onClick={() => setLotes({ item: r, startAdding: false })}
+        className={textAction}
       >
-        <ArrowLeftRight className="h-4 w-4" />
+        Lotes
+      </button>
+      <button onClick={() => setAdjusting(r)} className={textAction}>
+        Mínimo
+      </button>
+      <button onClick={() => setTransferring(r)} className={textAction}>
+        Transferir
       </button>
       <button
         onClick={() => requestDelete(r)}
-        className={`${iconAction} hover:!text-brand-danger`}
+        className={iconAction}
         aria-label={`Quitar ${r.nombre} del inventario`}
         title="Quitar del inventario"
       >
         <Trash2 className="h-4 w-4" />
       </button>
-    </>
+    </div>
   );
 
   const fetchError = branchesError || error;
@@ -185,7 +215,7 @@ export default function Inventario() {
       <PageHeader
         eyebrow="Operaciones de farmacia"
         title="Inventario"
-        subtitle="Controla el stock de cada sucursal, ajústalo o transfiérelo."
+        subtitle="Stock por sucursal. Cada ingreso se registra como un lote con su fecha de vencimiento."
         actions={
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
             <ActionButton to="/admin/vencimientos">
@@ -343,6 +373,17 @@ export default function Inventario() {
           loading={deleting}
           onConfirm={confirmDelete}
           onCancel={() => setToDelete(null)}
+        />
+      )}
+
+      {lotes && (
+        <LotesModal
+          item={lotes.item}
+          startAdding={lotes.startAdding}
+          branchId={branchId}
+          branchName={branch?.nombre}
+          onClose={() => setLotes(null)}
+          onChanged={refetch}
         />
       )}
 

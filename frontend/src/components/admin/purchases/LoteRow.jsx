@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import Input from "../../Ui/Input";
+import Input from "../../ui/Input";
 
 // Un lote de un producto: número, vencimiento y cantidad. `errors` trae los mensajes del lote
 export default function LoteRow({

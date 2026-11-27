@@ -14,5 +14,12 @@ export function useDebounced(value, delay = 300) {
 }
 
 // Busca productos para el POS (ya traen precio, stock_total y requiere_receta)
-export const usePuntoDeVentaProductos = (q) =>
-  useFetch(`${ENDPOINTS.PRODUCTS}${buildQuery({ q: q.trim(), page_size: 10 })}`);
+export const usePuntoDeVentaProductos = (q, branchId) =>
+  useFetch(
+    `${ENDPOINTS.PRODUCTS}${buildQuery({
+      q: q.trim(),
+      page_size: 10,
+      solo_con_stock: true,
+      ...(branchId ? { id_sucursal: branchId } : {}),
+    })}`,
+  );

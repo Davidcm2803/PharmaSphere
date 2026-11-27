@@ -56,6 +56,8 @@ def list_products(
     precio_min: Optional[Decimal] = Query(None, ge=0),
     precio_max: Optional[Decimal] = Query(None, ge=0),
     requiere_receta: Optional[bool] = None,
+    id_sucursal: Optional[int] = Query(None, ge=1, description="Stock de esta sucursal"),
+    solo_con_stock: bool = Query(False, description="Ocultar productos agotados"),
     orden: ProductSort = ProductSort.nombre,
     params: PageParams = Depends(get_page_params),
     db: Session = Depends(get_db),
@@ -65,12 +67,14 @@ def list_products(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="precio_min no puede ser mayor que precio_max",
         )
+    use_cache = id_sucursal is None and not solo_con_stock
     key = "products:list:" + "&".join(
         f"{k}={v}" for k, v in sorted(request.query_params.multi_items())
     )
-    hit = cache.get_json(key)
-    if hit is not None:
-        return hit
+    if use_cache:
+        hit = cache.get_json(key)
+        if hit is not None:
+            return hit
     rows, total = product_service.list_products(
         db,
         q=q,
@@ -80,10 +84,13 @@ def list_products(
         requiere_receta=requiere_receta,
         orden=orden,
         params=params,
+        id_sucursal=id_sucursal,
+        solo_con_stock=solo_con_stock,
     )
     items = [_out(ProductOut, p, stock) for p, stock in rows]
     page = build_page(items, total, params)
-    cache.set_json(key, jsonable_encoder(page), ttl=60)
+    if use_cache:
+        cache.set_json(key, jsonable_encoder(page), ttl=60)
     return page
 
 

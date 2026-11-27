@@ -17,6 +17,8 @@ from app.models.sale_model import DetalleVenta, Venta
 from app.models.user_model import Usuario
 from app.schemas.sale_schema import SaleCounterCreate, SaleCreate
 from app.utils.pagination import PageParams, paginate
+from app.services import support_ticket_service
+from app.services.inventory_service import InventoryError, descontar_fefo
 
 # Online: queda pendiente hasta que el cliente pague y retire en la sucursal
 TIPO_ONLINE = "online"
@@ -201,19 +203,19 @@ def _sell(
         db.add(venta)
         db.flush()  # para tener id_venta en el kardex y en las recetas
 
+        # FEFO: descuenta de los lotes que vencen primero; también baja inventario y registra el kardex
         for i in items:
-            inventarios[i.id_producto].cantidad -= i.cantidad
-            db.add(
-                MovimientoInventario(
-                    id_producto=i.id_producto,
-                    id_sucursal=branch.id_sucursal,
-                    tipo="venta",
-                    cantidad=-i.cantidad,
-                    motivo=f"Venta {tipo} #{venta.id_venta}",
-                    id_usuario=user.id_usuario,
+            try:
+                descontar_fefo(
+                    db,
+                    i.id_producto,
+                    branch.id_sucursal,
+                    i.cantidad,
                     id_venta=venta.id_venta,
+                    id_usuario=user.id_usuario,
                 )
-            )
+            except InventoryError as exc:
+                raise SaleError(f"{productos[i.id_producto].nombre}: {exc.detail}") from None
         for receta in (recetas or {}).values():
             receta.estado = "usada"
             receta.id_venta = venta.id_venta
@@ -233,17 +235,28 @@ def _sell(
 def create_sale(db: Session, user: Usuario, data: SaleCreate) -> Venta:
     if user.id_cliente is None:
         raise SaleError("Tu cuenta no tiene un perfil de cliente")
-    return _sell(
-        db,
-        user=user,
-        id_sucursal=data.id_sucursal,
-        raw_items=data.items,
-        id_cliente=user.id_cliente,
-        tipo=TIPO_ONLINE,
-        estado=ESTADO_ONLINE,
-        metodo_pago=METODO_PAGO_ONLINE,
-        antes=lambda: _update_customer(db, user.id_cliente, data),
-    )
+    try:
+        return _sell(
+            db,
+            user=user,
+            id_sucursal=data.id_sucursal,
+            raw_items=data.items,
+            id_cliente=user.id_cliente,
+            tipo=TIPO_ONLINE,
+            estado=ESTADO_ONLINE,
+            metodo_pago=METODO_PAGO_ONLINE,
+            antes=lambda: _update_customer(db, user.id_cliente, data),
+        )
+    except SaleError as exc:
+        if "requiere receta médica" in str(exc):
+            support_ticket_service.crear_caso(
+                db,
+                usuario=user,
+                nivel="moderado",
+                motivo="Intento de compra online sin receta",
+                mensaje=str(exc),
+            )
+        raise
 
 
 # Venta en el mostrador: la registra un empleado o admin; el cliente es opcional

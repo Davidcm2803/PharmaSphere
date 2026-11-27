@@ -183,24 +183,161 @@ def get_sales_by_day(
     return resultado
 
 
-# rankings
-@cached("reports:top_products", ttl=300)
-def get_top_products(db: Session, limit: int, orden: str) -> list[dict]:
+# Filtros comunes de ventas: sin canceladas, rango por día local de Costa Rica y sucursal opcional
+def _filtros_venta(
+    desde: Optional[date] = None,
+    hasta: Optional[date] = None,
+    id_sucursal: Optional[int] = None,
+) -> list:
+    dia = cast(_local(Venta.fecha), Date)
+    filtros: list = [Venta.estado != "cancelada"]
+    if desde is not None:
+        filtros.append(dia >= desde)
+    if hasta is not None:
+        filtros.append(dia <= hasta)
+    if id_sucursal is not None:
+        filtros.append(Venta.id_sucursal == id_sucursal)
+    return filtros
+
+
+def _productos_vendidos(
+    db: Session,
+    desde: Optional[date],
+    hasta: Optional[date],
+    id_sucursal: Optional[int],
+    orden: str,
+    limit: Optional[int],
+) -> list[dict]:
     unidades = func.sum(DetalleVenta.cantidad)
     ingresos = func.sum(DetalleVenta.cantidad * DetalleVenta.precio_unitario)
-    rows = db.execute(
-        select(Producto.id_producto, Producto.nombre, unidades.label("unidades"), ingresos.label("ingresos"))
-        .join(DetalleVenta, DetalleVenta.id_producto == Producto.id_producto)
+    costo = func.sum(DetalleVenta.cantidad * Producto.costo)
+    stmt = (
+        select(
+            Producto.id_producto,
+            Producto.nombre,
+            Producto.categoria,
+            unidades.label("unidades"),
+            ingresos.label("ingresos"),
+            costo.label("costo"),
+        )
+        .select_from(DetalleVenta)
         .join(Venta, Venta.id_venta == DetalleVenta.id_venta)
-        .where(Venta.estado != "cancelada")
-        .group_by(Producto.id_producto, Producto.nombre)
+        .join(Producto, Producto.id_producto == DetalleVenta.id_producto)
+        .where(*_filtros_venta(desde, hasta, id_sucursal))
+        .group_by(Producto.id_producto, Producto.nombre, Producto.categoria)
         .order_by((ingresos if orden == "ingresos" else unidades).desc(), Producto.nombre)
-        .limit(limit)
-    ).all()
+    )
+    if limit is not None:
+        stmt = stmt.limit(limit)
     return [
-        {"id_producto": r.id_producto, "nombre": r.nombre, "unidades": int(r.unidades), "ingresos": _f(r.ingresos)}
+        {
+            "id_producto": r.id_producto,
+            "nombre": r.nombre,
+            "categoria": r.categoria,
+            "unidades": int(r.unidades),
+            "ingresos": _f(r.ingresos),
+            "costo": _f(r.costo),
+            "ganancia": round(_f(r.ingresos) - _f(r.costo), 2),
+        }
+        for r in db.execute(stmt).all()
+    ]
+
+
+# rankings
+# Sin desde/hasta es el acumulado histórico (lo que usa el dashboard); con ellos, solo ese rango.
+@cached("reports:top_products_v2", ttl=300)
+def get_top_products(
+    db: Session,
+    limit: int,
+    orden: str,
+    desde: Optional[date] = None,
+    hasta: Optional[date] = None,
+) -> list[dict]:
+    return _productos_vendidos(db, desde, hasta, None, orden, limit)
+
+
+# ventas por producto en un rango (todos los productos vendidos, no solo el top)
+@cached("reports:sales_by_product", ttl=120)
+def get_sales_by_product(
+    db: Session,
+    desde: date,
+    hasta: date,
+    id_sucursal: Optional[int] = None,
+    orden: str = "ingresos",
+    limit: Optional[int] = None,
+) -> list[dict]:
+    return _productos_vendidos(db, desde, hasta, id_sucursal, orden, limit)
+
+
+# ventas por sucursal en un rango
+@cached("reports:sales_by_branch", ttl=120)
+def get_sales_by_branch(db: Session, desde: date, hasta: date) -> list[dict]:
+    filtros = _filtros_venta(desde, hasta)
+    total = func.sum(Venta.total)
+    rows = db.execute(
+        select(
+            Sucursal.id_sucursal,
+            Sucursal.nombre,
+            func.count(Venta.id_venta).label("ventas"),
+            total.label("total"),
+        )
+        .join(Venta, Venta.id_sucursal == Sucursal.id_sucursal)
+        .where(*filtros)
+        .group_by(Sucursal.id_sucursal, Sucursal.nombre)
+        .order_by(total.desc(), Sucursal.nombre)
+    ).all()
+    ganancias = {
+        id_sucursal: _f(g)
+        for id_sucursal, g in db.execute(
+            select(Venta.id_sucursal, func.sum((DetalleVenta.precio_unitario - Producto.costo) * DetalleVenta.cantidad))
+            .select_from(DetalleVenta)
+            .join(Venta, Venta.id_venta == DetalleVenta.id_venta)
+            .join(Producto, Producto.id_producto == DetalleVenta.id_producto)
+            .where(*filtros)
+            .group_by(Venta.id_sucursal)
+        ).all()
+    }
+    gran_total = sum(_f(r.total) for r in rows)
+    return [
+        {
+            "id_sucursal": r.id_sucursal,
+            "nombre": r.nombre,
+            "ventas": int(r.ventas),
+            "total": _f(r.total),
+            "ganancia": ganancias.get(r.id_sucursal, 0.0),
+            "pct": round(_f(r.total) / gran_total * 100, 2) if gran_total else 0.0,
+        }
         for r in rows
     ]
+
+
+# ganancia estimada = precio vendido menos costo actual del producto (no hay costo por lote en cada venta)
+@cached("reports:profit", ttl=120)
+def get_profit(db: Session, desde: date, hasta: date, id_sucursal: Optional[int] = None) -> dict:
+    filtros = _filtros_venta(desde, hasta, id_sucursal)
+    ingresos, costo = db.execute(
+        select(
+            func.coalesce(func.sum(DetalleVenta.cantidad * DetalleVenta.precio_unitario), 0),
+            func.coalesce(func.sum(DetalleVenta.cantidad * Producto.costo), 0),
+        )
+        .select_from(DetalleVenta)
+        .join(Venta, Venta.id_venta == DetalleVenta.id_venta)
+        .join(Producto, Producto.id_producto == DetalleVenta.id_producto)
+        .where(*filtros)
+    ).one()
+    ventas = db.scalar(select(func.count(Venta.id_venta)).where(*filtros)) or 0
+    ingresos, costo = _f(ingresos), _f(costo)
+    ganancia = round(ingresos - costo, 2)
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "id_sucursal": id_sucursal,
+        "ventas": int(ventas),
+        "ingresos": ingresos,
+        "costo": costo,
+        "ganancia": ganancia,
+        "margen_pct": round(ganancia / ingresos * 100, 2) if ingresos else 0.0,
+    }
 
 
 @cached("reports:branches", ttl=300)
@@ -357,4 +494,89 @@ def get_movements(db: Session, limit: int) -> list[dict]:
             "fecha": (r.fecha + CR_OFFSET).isoformat(),
         }
         for r in rows
+    ]
+
+
+# stock bajo: todas las filas de inventario en o bajo su mínimo (las más críticas primero)
+@cached("reports:low_stock", ttl=60)
+def get_low_stock(db: Session, id_sucursal: Optional[int] = None) -> list[dict]:
+    stmt = (
+        select(
+            Producto.id_producto,
+            Producto.nombre,
+            Producto.categoria,
+            Sucursal.id_sucursal,
+            Sucursal.nombre.label("sucursal"),
+            Inventario.cantidad,
+            Inventario.stock_minimo,
+        )
+        .join(Producto, Producto.id_producto == Inventario.id_producto)
+        .join(Sucursal, Sucursal.id_sucursal == Inventario.id_sucursal)
+        .where(Producto.activo.is_(True), Inventario.cantidad <= Inventario.stock_minimo)
+        .order_by((Inventario.cantidad - Inventario.stock_minimo).asc(), Producto.nombre, Sucursal.nombre)
+    )
+    if id_sucursal is not None:
+        stmt = stmt.where(Inventario.id_sucursal == id_sucursal)
+    return [
+        {
+            "id_producto": r.id_producto,
+            "nombre": r.nombre,
+            "categoria": r.categoria,
+            "id_sucursal": r.id_sucursal,
+            "sucursal": r.sucursal,
+            "cantidad": r.cantidad,
+            "stock_minimo": r.stock_minimo,
+            "faltante": r.stock_minimo - r.cantidad,
+        }
+        for r in db.execute(stmt).all()
+    ]
+
+
+# lotes con stock que vencen dentro de `dias` días (y, si se pide, los ya vencidos), del más urgente al menos
+@cached("reports:expiring", ttl=60)
+def get_expiring(
+    db: Session,
+    dias: int = DIAS_POR_VENCER,
+    incluir_vencidos: bool = True,
+    id_sucursal: Optional[int] = None,
+) -> list[dict]:
+    hoy = today_cr()
+    stmt = (
+        select(
+            Lote.id_lote,
+            Producto.id_producto,
+            Producto.nombre,
+            Lote.numero_lote,
+            Sucursal.id_sucursal,
+            Sucursal.nombre.label("sucursal"),
+            Lote.fecha_vencimiento,
+            Lote.cantidad,
+        )
+        .join(Producto, Producto.id_producto == Lote.id_producto)
+        .join(Sucursal, Sucursal.id_sucursal == Lote.id_sucursal)
+        .where(
+            Producto.activo.is_(True),
+            Lote.cantidad > 0,
+            Lote.fecha_vencimiento <= hoy + timedelta(days=dias),
+        )
+        .order_by(Lote.fecha_vencimiento.asc(), Producto.nombre, Lote.numero_lote)
+    )
+    if not incluir_vencidos:
+        stmt = stmt.where(Lote.fecha_vencimiento >= hoy)
+    if id_sucursal is not None:
+        stmt = stmt.where(Lote.id_sucursal == id_sucursal)
+    return [
+        {
+            "id_lote": r.id_lote,
+            "id_producto": r.id_producto,
+            "nombre": r.nombre,
+            "numero_lote": r.numero_lote,
+            "id_sucursal": r.id_sucursal,
+            "sucursal": r.sucursal,
+            "fecha_vencimiento": r.fecha_vencimiento.isoformat(),
+            "dias_restantes": (r.fecha_vencimiento - hoy).days,
+            "cantidad": r.cantidad,
+            "estado": "vencido" if r.fecha_vencimiento < hoy else "por_vencer",
+        }
+        for r in db.execute(stmt).all()
     ]
