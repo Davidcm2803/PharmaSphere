@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """Fixtures compartidos de los tests.
 
 Los tests corren contra una base APARTE (`<base>_test`), nunca contra la de desarrollo.
@@ -105,16 +106,37 @@ def base_de_pruebas():
         _cargar_sql(URL_PRUEBAS)
         _migrar()
     yield
+=======
 
+def _cargar_sql(destino: URL) -> None:
+    """Ejecuta init.sql y seed.sql para preparar la base de pruebas."""
+    eng = create_engine(destino)
+    raw = eng.raw_connection()
+>>>>>>> 93e6603 (fix: isolate demo seed from test database)
 
-@pytest.fixture
-def db():
-    conexion = engine.connect()
-    transaccion = conexion.begin()
-    sesion = Session(bind=conexion, join_transaction_mode="create_savepoint")
     try:
-        yield sesion
+        cur = raw.cursor()
+
+        # La base de pruebas utiliza únicamente los datos
+        # originales para mantener los resultados esperados.
+        archivos = ("init.sql", "seed.sql")
+
+        for nombre in archivos:
+            archivo = INIT_DIR / nombre
+
+            if not archivo.exists():
+                raise FileNotFoundError(
+                    f"No se encontró el archivo SQL requerido: {archivo}"
+                )
+
+            cur.execute(
+                archivo.read_text(encoding="utf-8-sig")
+            )
+
+        raw.commit()
+
     finally:
+<<<<<<< HEAD
         sesion.close()
         transaccion.rollback()
         conexion.close()
@@ -137,3 +159,7 @@ def escenario(db):
     db.add_all([prov, suc, prod])
     db.flush()
     return prov, suc, prod
+=======
+        raw.close()
+        eng.dispose()
+>>>>>>> 93e6603 (fix: isolate demo seed from test database)
